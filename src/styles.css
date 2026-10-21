@@ -1,0 +1,115 @@
+/* 교실 화면용: 멀리서도 읽히는 큰 글자, 체육관 나무 바닥과 어울리는 진한 남색 바탕 */
+:root {
+  --ink: #1d2433;
+  --ink-soft: #5a6478;
+  --panel: #ffffff;
+  --panel-line: #dfe3ea;
+  --accent: #1f6feb;
+  --accent-ink: #ffffff;
+  --bar: #18233a;
+  --bar-ink: #f3f5f9;
+  --font: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font);
+  color: var(--ink);
+  background: var(--bar);
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+.app {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  height: 100%;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 16px;
+  background: var(--bar);
+  color: var(--bar-ink);
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  flex: 1;
+}
+
+.views {
+  display: flex;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 4px;
+  border-radius: 10px;
+}
+
+.views button {
+  border: 0;
+  border-radius: 7px;
+  padding: 8px 14px;
+  background: transparent;
+  color: var(--bar-ink);
+  font-size: 15px;
+}
+
+.views button.on {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.views button:focus-visible {
+  outline: 2px solid #9cc2ff;
+  outline-offset: 1px;
+}
+
+.stage {
+  position: relative;
+  min-height: 0;
+}
+
+.caption {
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  max-width: min(90%, 1100px);
+  margin: 0;
+  padding: 12px 22px;
+  border-radius: 12px;
+  background: rgba(24, 35, 58, 0.88);
+  color: #fff;
+  font-size: clamp(18px, 2.2vw, 30px);
+  line-height: 1.4;
+  text-align: center;
+  text-wrap: balance;
+  word-break: keep-all;
+}
+
+.floor-label {
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--ink);
+  font: 600 13px var(--font);
+  white-space: nowrap;
+}

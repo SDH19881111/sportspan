@@ -113,7 +113,9 @@ button {
 
 .stage {
   position: relative;
+  min-width: 0;
   min-height: 0;
+  overflow: hidden;
 }
 
 .caption {
@@ -150,6 +152,8 @@ button {
 .inspector {
   background: var(--panel);
   overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable; /* 세로 스크롤바가 생겨도 내용 폭이 바뀌지 않게 */
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -219,6 +223,18 @@ button {
   flex: none;
 }
 
+/* 두 칸으로 늘어선 장비·그리기 버튼: 아이콘 위, 이름 아래. 옆에 두면 '훌라/후프'처럼 이름이 쪼개진다 */
+.grid2 .tool {
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  padding: 7px 4px;
+  min-height: 52px;
+  text-align: center;
+  line-height: 1.2;
+  word-break: keep-all;
+}
+
 .dot {
   width: 14px;
   height: 14px;
@@ -276,7 +292,8 @@ button {
 
 .row2 {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* minmax(0, …): 숫자 칸의 기본 너비 때문에 패널 밖으로 밀려나지 않게 */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 8px;
 }
 
@@ -476,23 +493,12 @@ textarea:focus-visible {
   font-weight: 400;
 }
 
-@media (max-width: 900px) {
-  .workspace {
-    grid-template-columns: 150px minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) auto;
-  }
-  .inspector {
-    grid-column: 1 / -1;
-    max-height: 40vh;
-    border-left: 0;
-    border-top: 1px solid var(--panel-line);
-  }
-}
-
 /* ── 장면 띠 ─────────────────────────────────── */
 
 .center {
   display: grid;
+  /* 열도 minmax(0, 1fr): 창을 줄일 때 3D 캔버스가 지금 너비를 붙잡고 오른쪽 패널을 덮지 않게 */
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr) auto;
   min-width: 0;
   min-height: 0;
@@ -849,9 +855,10 @@ textarea:focus-visible {
 
 .anim-head {
   display: flex;
+  flex-wrap: wrap; /* 패널이 좁으면 빠르기·재생을 다음 줄로 */
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px 8px;
 }
 
 .anim-head h2 {
@@ -1392,5 +1399,47 @@ textarea:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .present-nav button.ready {
     animation: none;
+  }
+}
+
+/* 화면 폭별 규칙은 맨 끝에 둔다(앞의 기본 규칙을 덮어야 하므로) */
+/* 좁은 노트북·배율 125%(1366 → 약 1090px): 양쪽 패널을 줄여 3D 화면과 장면 띠에 자리를 준다 */
+@media (max-width: 1200px) {
+  .workspace {
+    grid-template-columns: 168px minmax(0, 1fr) 264px;
+  }
+  .palette .tool {
+    font-size: 13px;
+  }
+  .grid2 .tool {
+    min-height: 48px;
+  }
+  .scene-card {
+    width: 112px;
+  }
+  .scene-add {
+    width: 76px;
+  }
+  .scene-tools {
+    flex-wrap: wrap;
+    width: 96px;
+    justify-content: center;
+  }
+  .topbar {
+    gap: 10px;
+  }
+}
+
+/* 아주 좁으면(태블릿 세로 등) 속성 패널을 아래로 */
+@media (max-width: 900px) {
+  .workspace {
+    grid-template-columns: 150px minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+  .inspector {
+    grid-column: 1 / -1;
+    max-height: 40vh;
+    border-left: 0;
+    border-top: 1px solid var(--panel-line);
   }
 }

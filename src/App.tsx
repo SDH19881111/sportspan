@@ -73,13 +73,14 @@ export function App() {
   const undo = useEditor((s) => s.undo);
   const redo = useEditor((s) => s.redo);
   const commit = useEditor((s) => s.commit);
+  const setFocus = useEditor((s) => s.setFocus);
   const [view, setView] = useState<CameraView>('angle');
   const [viewNonce, setViewNonce] = useState(0);
   const [libOpen, setLibOpen] = useState(false);
   const save = useAutosave();
   useShortcuts(save.flush);
   const scene = activity.scenes[sceneIdx];
-  const playingScene = playing ? activity.scenes[playing.target] : null;
+  const playingScene = playing ? activity.scenes[playing.scene] : null;
 
   return (
     <div className="app">
@@ -119,7 +120,7 @@ export function App() {
       <div className="workspace">
         <Palette />
         <div className="center">
-          <main className={`stage tool-${tool.t}`}>
+          <main className={`stage tool-${tool.t}`} onPointerDown={() => setFocus('canvas')}>
             <Stage field={activity.field} view={view} viewNonce={viewNonce}>
               <EditorScene />
             </Stage>

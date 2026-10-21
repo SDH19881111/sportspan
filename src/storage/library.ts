@@ -3,6 +3,7 @@
 
 import type { Activity } from '../model/activity';
 import { newId } from '../model/activity';
+import { migrate } from '../model/migrate';
 
 const PREFIX = 'peboard.';
 const INDEX = `${PREFIX}index`;
@@ -152,7 +153,11 @@ export function validateActivity(x: unknown): Activity {
     s.arrows ??= [];
     s.highlights ??= [];
     s.caption ??= '';
+    s.anims ??= [];
+    if (!Array.isArray(s.anims) || !s.anims.every((an) => isStr(an.id) && isStr(an.objId) && isStr(an.kind))) {
+      fail('애니메이션');
+    }
   }
   a.info ??= { players: '', place: '', minutes: 0, equipment: [], rules: [], scoring: '', safety: [] };
-  return a;
+  return migrate(a);
 }

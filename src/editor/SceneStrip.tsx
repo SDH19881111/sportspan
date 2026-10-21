@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { Activity, Scene } from '../model/activity';
 import { colorOf } from '../model/activity';
 import { CATALOG_BY_KIND } from '../model/catalog';
@@ -14,13 +15,19 @@ export function SceneStrip() {
   const setSceneIdx = useEditor((s) => s.setSceneIdx);
   const play = useEditor((s) => s.play);
   const stop = useEditor((s) => s.stop);
+  const focus = useEditor((s) => s.focus);
+  const setFocus = useEditor((s) => s.setFocus);
+  const setSel = useEditor((s) => s.setSel);
+  const [askCopy, setAskCopy] = useState(false);
   const n = activity.scenes.length;
-  const shown = playing ? playing.target : sceneIdx;
+  const shown = playing ? playing.scene : sceneIdx;
+  const hasAnims = activity.scenes[sceneIdx].anims.length > 0;
 
-  const addNext = () => {
-    const res = addSceneAfter(activity, sceneIdx);
+  const addNext = (mode: 'end' | 'start') => {
+    const res = addSceneAfter(activity, sceneIdx, mode);
     commit(res.activity);
     setSceneIdx(res.idx);
+    setAskCopy(false);
   };
 
   return (
@@ -32,41 +39,64 @@ export function SceneStrip() {
           </button>
         ) : (
           <>
-            <button
-              className="play"
-              disabled={sceneIdx === 0}
-              onClick={() => play(sceneIdx, false)}
-              title={sceneIdx === 0 ? '첫 장면은 앞 장면이 없어 움직임이 없습니다' : '앞 장면에서 이 장면으로 움직입니다 (Space)'}
-            >
-              ▶ 이 장면 움직임
+            <button className="play" onClick={() => play(sceneIdx, false)} title="이 장면의 애니메이션을 처음부터 (Space)">
+              ▶ 이 장면
             </button>
-            <button className="play" disabled={n < 2} onClick={() => play(1, true)} title="첫 장면부터 끝까지 이어서">
+            <button className="play" onClick={() => play(0, true)} title="첫 장면부터 끝까지 이어서">
               ▶ 처음부터
             </button>
           </>
         )}
       </div>
-      <ol className="scene-list">
+      <ol className={`scene-list${focus === 'scenes' ? ' focused' : ''}`}>
         {activity.scenes.map((s, i) => (
           <li key={s.id}>
             <button
               className={`scene-card${i === shown ? ' on' : ''}`}
-              onClick={() => !playing && setSceneIdx(i)}
+              onClick={() => {
+                if (playing) return;
+                setSceneIdx(i);
+                setSel([]);
+                setFocus('scenes'); // 이제 Delete는 이 장면을 지운다
+              }}
               aria-current={i === shown ? 'step' : undefined}
               title={s.caption || `장면 ${i + 1}`}
             >
               <MiniMap activity={activity} scene={s} />
               <span className="scene-num">{i + 1}</span>
               <span className="scene-cap">{s.caption || '설명 없음'}</span>
+              {s.anims.length > 0 && <span className="scene-anims">애니 {s.anims.length}</span>}
             </button>
           </li>
         ))}
-        <li>
-          <button className="scene-add" onClick={addNext} disabled={!!playing} title="지금 장면을 복사해 바로 뒤에 넣습니다">
-            ＋ 다음 장면
-          </button>
-        </li>
       </ol>
+      <div className="scene-add-wrap">
+        <button
+          className="scene-add"
+          onClick={() => (hasAnims ? setAskCopy((v) => !v) : addNext('start'))}
+          disabled={!!playing}
+          aria-expanded={hasAnims ? askCopy : undefined}
+          title="지금 장면을 복사해 바로 뒤에 넣습니다"
+        >
+          ＋ 다음 장면
+        </button>
+        {askCopy && (
+          <div className="copy-menu" role="menu">
+            <p>장면 {sceneIdx + 1}에 애니메이션이 있습니다. 어느 상태로 복사할까요?</p>
+            <button role="menuitem" onClick={() => addNext('end')}>
+              <b>애니메이션 끝난 상태로</b>
+              <span>움직인 뒤 자리에서 이어서 설명</span>
+            </button>
+            <button role="menuitem" onClick={() => addNext('start')}>
+              <b>애니메이션 전 상태로</b>
+              <span>움직이기 전 자리 그대로</span>
+            </button>
+            <button className="copy-cancel" onClick={() => setAskCopy(false)}>
+              취소
+            </button>
+          </div>
+        )}
+      </div>
       <div className="scene-tools">
         <button
           disabled={!!playing || sceneIdx === 0}
@@ -93,7 +123,7 @@ export function SceneStrip() {
         <button
           className="danger"
           disabled={!!playing || n <= 1}
-          title="이 장면 지우기"
+          title="이 장면 지우기 (장면을 누른 뒤 Delete)"
           onClick={() => {
             commit(removeScene(activity, sceneIdx));
             setSceneIdx(Math.min(sceneIdx, n - 2));

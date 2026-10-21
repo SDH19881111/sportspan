@@ -387,7 +387,8 @@ textarea:focus-visible {
 .stage.tool-place canvas,
 .stage.tool-zone canvas,
 .stage.tool-line canvas,
-.stage.tool-arrow canvas {
+.stage.tool-arrow canvas,
+.stage.tool-path canvas {
   cursor: crosshair;
 }
 
@@ -758,4 +759,300 @@ textarea:focus-visible {
 .lib-ask {
   font-size: 13px;
   color: #9b1c1c;
+}
+
+/* ── 애니메이션 번호표 ───────────────────────── */
+
+.anim-badge {
+  min-width: 22px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: #1d2433;
+  color: #fff;
+  font: 700 12px/18px var(--font);
+  text-align: center;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.anim-badge.selected {
+  background: var(--accent);
+}
+
+/* ── 오른쪽 패널 탭 ───────────────────────────── */
+
+.tabs {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 9px;
+  background: #eef1f5;
+  flex: none;
+}
+
+.tabs button {
+  flex: 1;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.tabs button.on {
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.anim-add {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.anim-add button {
+  padding: 8px 6px;
+  border: 1px solid #c9d8f5;
+  border-radius: 8px;
+  background: #f1f6ff;
+  color: #0f3f99;
+  font-size: 14px;
+}
+
+.field select {
+  font: inherit;
+  font-size: 15px;
+  color: var(--ink);
+  padding: 7px 8px;
+  border: 1px solid var(--panel-line);
+  border-radius: 7px;
+  background: #fff;
+}
+
+.field-label {
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+/* ── 애니메이션 창 ───────────────────────────── */
+
+.anim-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.anim-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.anim-head h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.anim-head .play {
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 14px;
+}
+
+.anim-head .play.on {
+  background: #e5484d;
+}
+
+.anim-head .play:disabled {
+  opacity: 0.4;
+}
+
+.anim-total {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.anim-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.anim-group {
+  margin: 6px 0 2px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+}
+
+.anim-row {
+  display: grid;
+  grid-template-columns: 22px 12px minmax(0, 1fr);
+  grid-template-rows: auto 8px;
+  column-gap: 6px;
+  row-gap: 4px;
+  align-items: center;
+  width: 100%;
+  padding: 6px 7px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: #f5f7fa;
+  color: var(--ink);
+  font-size: 13px;
+  text-align: left;
+}
+
+.anim-row.on {
+  border-color: var(--accent);
+  background: #eaf1ff;
+}
+
+.anim-num {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+}
+
+.anim-row .dot {
+  width: 12px;
+  height: 12px;
+}
+
+.anim-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.anim-bar-track {
+  position: relative;
+  grid-column: 1 / -1;
+  height: 8px;
+  border-radius: 4px;
+  background: #e3e8ef;
+}
+
+.anim-bar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 4px;
+  background: #3f8f5a;
+}
+
+.anim-bar.k-fall {
+  background: #e5484d;
+}
+
+.anim-bar.k-appear,
+.anim-bar.k-disappear {
+  background: #8e4ec6;
+}
+
+.anim-ruler {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.anim-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--panel-line);
+  border-radius: 10px;
+  background: #fbfcfe;
+}
+
+.anim-detail h3 {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink);
+  letter-spacing: 0;
+}
+
+/* ── 장면 띠: 복제 방식 고르기, 애니 개수, 포커스 ─ */
+
+.scene-add-wrap {
+  position: relative;
+}
+
+.copy-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  width: 250px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+}
+
+.copy-menu p {
+  margin: 0 0 2px;
+  font-size: 13px;
+  color: var(--ink-soft);
+  word-break: keep-all;
+}
+
+.copy-menu button {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--panel-line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  text-align: left;
+  font-size: 14px;
+}
+
+.copy-menu button span {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.copy-menu .copy-cancel {
+  align-items: center;
+  border: 0;
+  color: var(--ink-soft);
+}
+
+.scene-anims {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 0 5px;
+  border-radius: 6px;
+  background: #3f8f5a;
+  font: 700 11px/17px var(--font);
+}
+
+.scene-list.focused .scene-card.on {
+  border-color: #ffd23f;
+  box-shadow: 0 0 0 2px rgba(255, 210, 63, 0.35);
 }

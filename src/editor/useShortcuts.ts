@@ -5,6 +5,7 @@ import {
   isLocked,
   moveItems,
   removeItems,
+  removeScene,
   rotateObjects,
   ungroupItems,
 } from '../model/ops';
@@ -64,8 +65,18 @@ export function useShortcuts(onSave: () => void) {
       }
       if (e.key === ' ') {
         e.preventDefault();
-        if (st.sceneIdx > 0) st.play(st.sceneIdx, false);
-        else st.play(1, true);
+        st.play(st.sceneIdx, false);
+        return;
+      }
+      // 장면 띠에서 장면을 고른 상태: Delete는 장면을 지운다(PPT처럼)
+      if (st.focus === 'scenes' && (e.key === 'Delete' || e.key === 'Backspace')) {
+        e.preventDefault();
+        if (st.activity.scenes.length > 1) {
+          const idx = st.sceneIdx;
+          st.commit(removeScene(st.activity, idx));
+          st.setSceneIdx(Math.min(idx, st.activity.scenes.length - 2));
+          useEditor.getState().setFocus('scenes');
+        }
         return;
       }
 

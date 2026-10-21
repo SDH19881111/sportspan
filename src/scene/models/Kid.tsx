@@ -19,16 +19,29 @@ interface Props {
   shirt: string;
   pose?: KidPoseState;
   selected?: boolean;
+  faded?: boolean; // 장면 시작 때 숨어 있는 학생(편집 화면에서 흐리게)
 }
 
-function mat(color: string) {
-  return new THREE.MeshStandardMaterial({ color, flatShading: true, roughness: 0.85 });
+function mat(color: string, faded?: boolean) {
+  return new THREE.MeshStandardMaterial({
+    color,
+    flatShading: true,
+    roughness: 0.85,
+    transparent: !!faded,
+    opacity: faded ? 0.3 : 1,
+  });
 }
 
-export function Kid({ shirt, pose, selected }: Props) {
+export function Kid({ shirt, pose, selected, faded }: Props) {
   const m = useMemo(
-    () => ({ skin: mat(SKIN), hair: mat(HAIR), pants: mat(PANTS), shoe: mat(SHOE), shirt: mat(shirt) }),
-    [shirt],
+    () => ({
+      skin: mat(SKIN, faded),
+      hair: mat(HAIR, faded),
+      pants: mat(PANTS, faded),
+      shoe: mat(SHOE, faded),
+      shirt: mat(shirt, faded),
+    }),
+    [shirt, faded],
   );
   const swing = (pose?.swing ?? 0) * 0.7;
   const s = Math.sin(pose?.stride ?? 0) * swing;

@@ -92,12 +92,48 @@ export function HighlightRing({ x, z, radius }: { x: number; z: number; radius: 
   );
 }
 
-/** 앞 장면에서 있던 자리(흐린 원)와 지금 자리까지의 점선 */
-export function Ghost(p: { x0: number; z0: number; x1: number; z1: number; radius: number; color: string }) {
+/** 애니메이션 번호표(PPT처럼 물건 옆에 붙는 숫자) */
+export function AnimBadge(p: {
+  x: number;
+  z: number;
+  y?: number;
+  label: string;
+  selected?: boolean;
+  onPointerDown?: (e: React.PointerEvent) => void;
+}) {
+  return (
+    <Html position={[p.x, p.y ?? 0.05, p.z]} center zIndexRange={[25, 15]} style={{ pointerEvents: 'none' }}>
+      <div
+        className={`anim-badge${p.selected ? ' selected' : ''}`}
+        style={{ pointerEvents: p.onPointerDown ? 'auto' : 'none' }}
+        onPointerDown={p.onPointerDown}
+      >
+        {p.label}
+      </div>
+    </Html>
+  );
+}
+
+/**
+ * 이동 경로: 출발점에서 도착점까지 점선, 도착점에 흐린 원(끌어서 도착점을 옮길 수 있다).
+ * 던지기·튕기기는 공이 날아가는 높이를 점으로 보여 준다.
+ */
+export function PathMark(p: {
+  x0: number;
+  z0: number;
+  x1: number;
+  z1: number;
+  color: string;
+  radius: number;
+  selected?: boolean;
+  heights?: number[]; // 길을 따라 고르게 나눈 높이(던지기)
+  onEndDown?: (e: ThreeEvent<PointerEvent>) => void;
+}) {
   const len = Math.hypot(p.x1 - p.x0, p.z1 - p.z0);
   const angle = Math.atan2(p.z1 - p.z0, p.x1 - p.x0);
   const dash = 0.25;
   const n = Math.max(1, Math.floor(len / (dash * 2)));
+  const lineColor = p.selected ? '#2563eb' : p.color;
   const dashes = [];
   for (let i = 0; i < n; i++) {
     const k = (i * dash * 2 + dash / 2) / len;
@@ -108,18 +144,32 @@ export function Ghost(p: { x0: number; z0: number; x1: number; z1: number; radiu
         position={[p.x0 + (p.x1 - p.x0) * k, 0.018, p.z0 + (p.z1 - p.z0) * k]}
         rotation={[-Math.PI / 2, 0, -angle]}
       >
-        <planeGeometry args={[dash, 0.07]} />
-        <meshBasicMaterial color={p.color} transparent opacity={0.8} />
+        <planeGeometry args={[dash, p.selected ? 0.12 : 0.07]} />
+        <meshBasicMaterial color={lineColor} transparent opacity={0.9} />
       </mesh>,
     );
   }
+  const dots = (p.heights ?? []).map((h, i, arr) => {
+    const k = arr.length > 1 ? i / (arr.length - 1) : 0;
+    return (
+      <mesh key={`h${i}`} position={[p.x0 + (p.x1 - p.x0) * k, h, p.z0 + (p.z1 - p.z0) * k]}>
+        <sphereGeometry args={[0.04, 6, 4]} />
+        <meshBasicMaterial color={lineColor} />
+      </mesh>
+    );
+  });
   return (
     <group>
-      <mesh position={[p.x0, 0.016, p.z0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[p.radius + 0.05, 20]} />
-        <meshBasicMaterial color={p.color} transparent opacity={0.35} />
-      </mesh>
       {dashes}
+      {dots}
+      <mesh position={[p.x1, 0.02, p.z1]} rotation={[-Math.PI / 2, 0, 0]} onPointerDown={p.onEndDown}>
+        <circleGeometry args={[p.radius + 0.08, 24]} />
+        <meshBasicMaterial color={p.color} transparent opacity={0.4} />
+      </mesh>
+      <mesh position={[p.x1, 0.021, p.z1]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[p.radius + 0.08, p.radius + 0.14, 24]} />
+        <meshBasicMaterial color={lineColor} />
+      </mesh>
     </group>
   );
 }

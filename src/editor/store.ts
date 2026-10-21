@@ -9,25 +9,33 @@ export type Tool =
   | { t: 'zone' }
   | { t: 'line' }
   | { t: 'arrow' }
-  | { t: 'bubble' };
+  | { t: 'bubble' }
+  /** 이동 경로: ids가 있으면 바닥을 누른 곳이 도착점, 없으면 물건을 눌러 끌어 놓는다 */
+  | { t: 'path'; ids?: string[] };
 
 /** 고른 것들의 id(물건·구역·선·화살표·말풍선이 섞일 수 있다) */
 export type Selection = string[];
 
-/** 구역·선·화살표를 그리는 중의 미리보기 */
+/** 구역·선·화살표·이동 경로를 그리는 중의 미리보기 */
 export interface Draft {
-  t: 'zone' | 'line' | 'arrow';
+  t: 'zone' | 'line' | 'arrow' | 'path';
   x1: number;
   z1: number;
   x2: number;
   z2: number;
 }
 
-/** 재생 중: target 장면으로 넘어가는 움직임을 보여 준다. all이면 끝까지 이어서. */
+/** 재생 중: scene 장면의 애니메이션을 처음부터 튼다. all이면 다음 장면으로 이어서. */
 export interface Playing {
-  target: number;
+  scene: number;
   all: boolean;
+  /** 재생을 누를 때마다 새 번호(같은 장면을 다시 틀어도 처음부터) */
+  run: number;
 }
+
+/** 키보드 Delete가 무엇을 지울지: 화면에서 고른 것 / 장면 띠에서 고른 장면 */
+export type Focus = 'canvas' | 'scenes';
+export type RightTab = 'props' | 'anims';
 
 const HISTORY_LIMIT = 100;
 const MERGE_MS = 1500;
@@ -45,8 +53,12 @@ interface EditorState {
   future: Activity[];
   gestureBase: Activity | null;
   playing: Playing | null;
-  play: (target: number, all: boolean) => void;
+  play: (scene: number, all: boolean) => void;
   stop: () => void;
+  focus: Focus;
+  setFocus: (f: Focus) => void;
+  rightTab: RightTab;
+  setRightTab: (t: RightTab) => void;
 
   /** 바로 기록하는 변경(버튼·키 한 번). mergeKey가 같은 연속 입력(글자 치기)은 한 번으로 묶는다. */
   commit: (next: Activity, mergeKey?: string) => void;
@@ -85,12 +97,16 @@ export const useEditor = create<EditorState>((set, get) => ({
   future: [],
   gestureBase: null,
   playing: null,
-  play: (target, all) => {
+  play: (scene, all) => {
     const n = get().activity.scenes.length;
-    if (target < 1 || target >= n) return;
-    set({ playing: { target, all }, sceneIdx: target - 1, sel: [], tool: { t: 'select' }, draft: null });
+    if (scene < 0 || scene >= n) return;
+    set({ playing: { scene, all, run: (get().playing?.run ?? 0) + 1 }, sceneIdx: scene, tool: { t: 'select' }, draft: null });
   },
   stop: () => set({ playing: null }),
+  focus: 'canvas',
+  setFocus: (focus) => set({ focus }),
+  rightTab: 'props',
+  setRightTab: (rightTab) => set({ rightTab }),
 
   lastMerge: null,
   commit: (next, mergeKey) => {
@@ -145,7 +161,7 @@ export const useEditor = create<EditorState>((set, get) => ({
     });
   },
   setTool: (tool) => set({ tool, draft: null }),
-  setSel: (sel) => set({ sel }),
+  setSel: (sel) => set({ sel, ...(sel.length ? { focus: 'canvas' as const } : {}) }),
   setDraft: (draft) => set({ draft }),
   setDragging: (dragging) => set({ dragging }),
   setZoneColor: (zoneColor) => set({ zoneColor }),

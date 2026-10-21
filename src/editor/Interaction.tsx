@@ -3,7 +3,7 @@ import { useThree } from '@react-three/fiber';
 import type { ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
-import { addLine, addObject, addArrow, addZone } from '../model/ops';
+import { addArrow, addLine, addMoves, addObject, addZone } from '../model/ops';
 import { useEditor } from './store';
 
 // 화면 좌표 → 바닥(y=0) 좌표. 캔버스 밖으로 끌어도 계속 계산되도록 window 이벤트로 끈다.
@@ -99,6 +99,20 @@ export function Interaction() {
       );
       st.commit(activity);
       st.setSel([id]);
+      return;
+    }
+
+    if (t.t === 'path') {
+      // 이동할 것을 먼저 골라 두었으면 누른 곳이 도착점
+      if (!t.ids?.length) return;
+      e.stopPropagation();
+      const p = floorApi.floorAt(native.clientX, native.clientY);
+      if (!p) return;
+      const res = addMoves(st.activity, st.sceneIdx, t.ids, { x: p[0], z: p[1] });
+      st.commit(res.activity);
+      st.setTool({ t: 'select' });
+      st.setSel(res.ids);
+      st.setRightTab('anims');
       return;
     }
 

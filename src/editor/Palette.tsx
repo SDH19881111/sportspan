@@ -6,7 +6,8 @@ import { useEditor, type Tool } from './store';
 
 const EQUIPMENT = CATALOG.filter((c) => c.kind !== 'kid');
 
-const DRAW: { t: 'zone' | 'line' | 'arrow' | 'bubble'; name: string; hint: string }[] = [
+const DRAW: { t: 'zone' | 'line' | 'arrow' | 'bubble' | 'path'; name: string; hint: string }[] = [
+  { t: 'path', name: '이동 경로', hint: '학생이나 공을 눌러 도착할 곳까지 끌면 이동 애니메이션이 생깁니다' },
   { t: 'zone', name: '구역', hint: '바닥을 끌어 색 구역을 그립니다' },
   { t: 'line', name: '선', hint: '바닥을 끌어 경계선을 긋습니다' },
   { t: 'arrow', name: '화살표', hint: '바닥을 끌어 움직일 길을 표시합니다' },
@@ -96,6 +97,10 @@ function tipFor(tool: Tool) {
       return '움직일 방향으로 바닥을 끌어 화살표를 그립니다. 화살표는 지금 장면에만 보입니다.';
     case 'bubble':
       return '말풍선을 달 학생이나 장비를 누릅니다.';
+    case 'path':
+      return tool.ids?.length
+        ? '바닥에서 도착할 곳을 누르세요. 고른 것이 그곳까지 움직입니다.'
+        : '움직일 학생이나 공을 눌러 도착할 곳까지 끄세요. 이 장면 안에서 움직이는 애니메이션이 됩니다.';
   }
 }
 
@@ -197,6 +202,14 @@ function Glyph({ kind, color = 'currentColor' }: { kind: ObjectKind | Tool['t'];
         <svg {...p}>
           <path d="M3 14L12 5" stroke="#e0a800" strokeWidth="2.5" />
           <path d="M8 3h7v7z" fill="#e0a800" />
+        </svg>
+      );
+    case 'path':
+      return (
+        <svg {...p}>
+          <circle cx="4" cy="14" r="2.5" fill="currentColor" />
+          <path d="M6 12.5C9 11 8 6 13 5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeDasharray="2 2" />
+          <path d="M11 2.5l4 2.3-3.3 3z" fill="currentColor" />
         </svg>
       );
     case 'bubble':

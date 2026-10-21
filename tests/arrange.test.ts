@@ -78,7 +78,6 @@ describe('장면', () => {
     let { a, kid } = setup();
     a.scenes[0].caption = '첫 장면';
     a.scenes[0].highlights = [kid];
-    a.scenes[0].poses[kid].move = 'throw';
     const res = addSceneAfter(a, 0);
     expect(res.idx).toBe(1);
     const s = res.activity.scenes[1];

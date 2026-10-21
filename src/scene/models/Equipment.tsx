@@ -11,17 +11,28 @@ interface Props {
   color: string;
   selected?: boolean;
   tilt?: number; // 넘어짐 각도(라디안), 콘·컵용
+  faded?: boolean;
 }
 
-function useMat(color: string) {
-  return useMemo(() => new THREE.MeshStandardMaterial({ color, flatShading: true, roughness: 0.7 }), [color]);
+function useMat(color: string, faded?: boolean) {
+  return useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color,
+        flatShading: true,
+        roughness: 0.7,
+        transparent: !!faded,
+        opacity: faded ? 0.3 : 1,
+      }),
+    [color, faded],
+  );
 }
 
 const WHITE = '#f4f4f0';
 
-export function Equipment({ kind, color, selected, tilt = 0 }: Props) {
-  const m = useMat(color);
-  const white = useMat(WHITE);
+export function Equipment({ kind, color, selected, tilt = 0, faded }: Props) {
+  const m = useMat(color, faded);
+  const white = useMat(WHITE, faded);
   const r = CATALOG_BY_KIND[kind].radius;
 
   let body: JSX.Element;

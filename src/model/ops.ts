@@ -1,6 +1,7 @@
 // 활동을 바꾸는 순수 함수들. 항상 새 Activity를 돌려준다(실행 취소 기록을 위해 원본은 건드리지 않는다).
 import type {
   Activity,
+  Anim,
   Arrow,
   BoardObject,
   Bubble,
@@ -10,6 +11,7 @@ import type {
   Team,
 } from './activity';
 import { newId } from './activity';
+import { buildTimeline } from '../motion/timeline';
 
 function clone(a: Activity): Activity {
   return structuredClone(a);
@@ -98,6 +100,7 @@ export function removeObjects(a: Activity, ids: string[]): Activity {
     for (const id of ids) delete s.poses[id];
     s.bubbles = s.bubbles.filter((b) => !b.objId || !ids.includes(b.objId));
     s.highlights = s.highlights.filter((h) => !ids.includes(h));
+    s.anims = s.anims.filter((an) => !ids.includes(an.objId));
   }
   return next;
 }
@@ -280,7 +283,7 @@ export function setFieldKind(a: Activity, kind: Activity['field']['kind']): Acti
 
 // ── 여러 종류를 함께 다루기(고르기·묶음·고정) ──────────
 
-export type ItemKind = 'obj' | 'zone' | 'line' | 'arrow' | 'bubble';
+export type ItemKind = 'obj' | 'zone' | 'line' | 'arrow' | 'bubble' | 'anim';
 
 export function itemKind(a: Activity, sceneIdx: number, id: string): ItemKind | null {
   if (a.objects.some((o) => o.id === id)) return 'obj';
@@ -289,6 +292,7 @@ export function itemKind(a: Activity, sceneIdx: number, id: string): ItemKind | 
   const s = a.scenes[sceneIdx];
   if (s?.arrows.some((v) => v.id === id)) return 'arrow';
   if (s?.bubbles.some((v) => v.id === id)) return 'bubble';
+  if (s?.anims.some((v) => v.id === id)) return 'anim';
   return null;
 }
 
@@ -346,6 +350,7 @@ export function removeItems(a: Activity, sceneIdx: number, ids: string[]): Activ
   const s = next.scenes[sceneIdx];
   s.arrows = s.arrows.filter((v) => !ids.includes(v.id));
   s.bubbles = s.bubbles.filter((v) => !ids.includes(v.id));
+  s.anims = s.anims.filter((v) => !ids.includes(v.id));
   return next;
 }
 
@@ -423,17 +428,20 @@ export function duplicateItems(a: Activity, ids: string[], offset = 0.6): { acti
 // ── 장면 ───────────────────────────────────────────────
 
 /**
- * idx 장면을 복사해 바로 뒤에 새 장면을 만든다. 자리·숨김·넘어짐은 이어받고,
- * 설명·화살표·말풍선·강조와 공의 동작(이 장면으로 '오는' 방법)은 비운다.
+ * idx 장면을 복사해 바로 뒤에 새 장면을 만든다.
+ *  - 'end': 애니메이션이 모두 끝난 자리에서 시작(이어서 설명할 때)
+ *  - 'start': 애니메이션 전 자리 그대로
+ * 설명·화살표·말풍선·강조·애니메이션은 비운다.
  */
-export function addSceneAfter(a: Activity, idx: number): { activity: Activity; idx: number } {
+export function addSceneAfter(
+  a: Activity,
+  idx: number,
+  mode: 'end' | 'start' = 'end',
+): { activity: Activity; idx: number } {
   const next = clone(a);
   const src = next.scenes[idx];
-  const poses: Record<string, Pose> = {};
-  for (const [id, p] of Object.entries(src.poses)) {
-    const { move: _move, ...rest } = p;
-    poses[id] = rest;
-  }
+  const poses: Record<string, Pose> =
+    mode === 'end' && src.anims.length ? buildTimeline(a, idx).endPoses : structuredClone(src.poses);
   next.scenes.splice(idx + 1, 0, {
     id: newId('sc'),
     caption: '',
@@ -441,6 +449,7 @@ export function addSceneAfter(a: Activity, idx: number): { activity: Activity; i
     bubbles: [],
     arrows: [],
     highlights: [],
+    anims: [],
   });
   return { activity: next, idx: idx + 1 };
 }
@@ -459,4 +468,74 @@ export function moveScene(a: Activity, idx: number, dir: -1 | 1): Activity {
   const [s] = next.scenes.splice(idx, 1);
   next.scenes.splice(to, 0, s);
   return next;
+}
+
+// ── 애니메이션 ─────────────────────────────────────────
+
+export function addAnim(a: Activity, sceneIdx: number, anim: Omit<Anim, 'id'>): { activity: Activity; id: string } {
+  const next = clone(a);
+  const id = newId('an');
+  const an: Anim = { ...anim, id };
+  if (an.to) an.to = { x: clampToField(a, an.to.x, an.to.z)[0], z: clampToField(a, an.to.x, an.to.z)[1] };
+  next.scenes[sceneIdx].anims.push(an);
+  return { activity: next, id };
+}
+
+export function updateAnim(a: Activity, sceneIdx: number, id: string, patch: Partial<Omit<Anim, 'id' | 'objId'>>): Activity {
+  const next = clone(a);
+  const an = next.scenes[sceneIdx].anims.find((v) => v.id === id);
+  if (an) {
+    Object.assign(an, patch);
+    if (patch.to) {
+      const [x, z] = clampToField(a, patch.to.x, patch.to.z);
+      an.to = { x, z };
+    }
+    if (an.delay < 0 || !Number.isFinite(an.delay)) an.delay = 0;
+  }
+  return next;
+}
+
+/** 목록 순서를 한 칸 옮긴다(PPT 애니메이션 창의 ▲▼) */
+export function moveAnim(a: Activity, sceneIdx: number, id: string, dir: -1 | 1): Activity {
+  const list = a.scenes[sceneIdx].anims;
+  const i = list.findIndex((v) => v.id === id);
+  const to = i + dir;
+  if (i < 0 || to < 0 || to >= list.length) return a;
+  const next = clone(a);
+  const arr = next.scenes[sceneIdx].anims;
+  const [an] = arr.splice(i, 1);
+  arr.splice(to, 0, an);
+  return next;
+}
+
+/**
+ * 고른 물건들에 이동을 한꺼번에 붙인다. 첫 물건이 dest로 가고 나머지는 같은 간격을 유지한다.
+ * 출발점은 각 물건의 '지금까지 애니메이션이 끝난 자리'라서 이동을 이어 붙일 수 있다.
+ */
+export function addMoves(
+  a: Activity,
+  sceneIdx: number,
+  ids: string[],
+  dest: { x: number; z: number },
+  start: Anim['start'] = 'click',
+): { activity: Activity; ids: string[] } {
+  const ends = buildTimeline(a, sceneIdx).endPoses;
+  const lead = ends[ids[0]];
+  if (!lead) return { activity: a, ids: [] };
+  let next = a;
+  const made: string[] = [];
+  ids.forEach((id, i) => {
+    const p = ends[id];
+    if (!p) return;
+    const res = addAnim(next, sceneIdx, {
+      objId: id,
+      kind: 'move',
+      start: i === 0 ? start : 'with',
+      delay: 0,
+      to: { x: dest.x + (p.x - lead.x), z: dest.z + (p.z - lead.z) },
+    });
+    next = res.activity;
+    made.push(res.id);
+  });
+  return { activity: next, ids: made };
 }

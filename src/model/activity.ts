@@ -66,16 +66,34 @@ export interface BoardObject extends Arrangeable {
   label?: string; // 아이 이름·번호
 }
 
-/** 공이 앞 장면 자리에서 이 장면 자리로 오는 방법 */
-export type BallMove = 'roll' | 'throw' | 'bounce';
-
+/** 장면이 시작될 때의 자리와 상태 */
 export interface Pose {
   x: number;
   z: number;
   rot: number;
-  hidden?: boolean; // 이 장면에서는 안 보임
-  move?: BallMove; // 공만: 기본은 굴러감
-  fallen?: boolean; // 콘·컵만: 이 장면에서 넘어져 있음
+  hidden?: boolean; // 장면 시작 때 안 보임(나타나기 애니메이션으로 보이게 할 수 있다)
+  fallen?: boolean; // 콘·컵: 넘어진 채로 시작
+}
+
+// ── 애니메이션(PPT처럼 장면 안에서 순서대로 일어나는 일) ──
+
+/** 클릭할 때 / 앞과 함께 / 앞 다음에 / (넘어지기만) 공이 닿을 때 */
+export type AnimStart = 'click' | 'with' | 'after' | 'hit';
+
+/** 이동 방식: 사람·장비는 걷기·뛰기, 공은 굴러감·던짐·튀김 */
+export type MoveStyle = 'walk' | 'run' | 'roll' | 'throw' | 'bounce';
+export type BallMove = Extract<MoveStyle, 'roll' | 'throw' | 'bounce'>;
+
+export type AnimKind = 'move' | 'fall' | 'appear' | 'disappear';
+
+export interface Anim {
+  id: string;
+  objId: string;
+  kind: AnimKind;
+  start: AnimStart;
+  delay: number; // 초
+  to?: { x: number; z: number }; // move만
+  style?: MoveStyle; // move만
 }
 
 export interface Bubble {
@@ -99,6 +117,7 @@ export interface Scene {
   bubbles: Bubble[];
   arrows: Arrow[];
   highlights: string[];
+  anims: Anim[];
 }
 
 export interface ActivityInfo {
@@ -111,9 +130,13 @@ export interface ActivityInfo {
   safety: string[];
 }
 
+/** 2: 움직임을 장면 안 애니메이션으로 저장(1은 장면과 장면 사이에서 움직였다) */
+export const ACTIVITY_VERSION = 2;
+
 export interface Activity {
   id: string;
   title: string;
+  version?: number;
   updatedAt?: number; // 내 설명판 목록 정렬용(ms)
   info: ActivityInfo;
   field: Field;
@@ -145,7 +168,8 @@ export function emptyActivity(title = '새 활동', kind: FieldKind = 'gym'): Ac
       { id: 'yellow', name: '노랑 팀', color: '#f5b400' },
     ],
     objects: [],
-    scenes: [{ id: newId('sc'), caption: '', poses: {}, bubbles: [], arrows: [], highlights: [] }],
+    version: ACTIVITY_VERSION,
+    scenes: [{ id: newId('sc'), caption: '', poses: {}, bubbles: [], arrows: [], highlights: [], anims: [] }],
   };
 }
 

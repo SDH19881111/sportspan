@@ -1,7 +1,8 @@
-import type { Activity, BallMove, FieldKind } from '../model/activity';
+import type { Activity, AnimKind, AnimStart, FieldKind } from '../model/activity';
 import { FIELD_SIZES } from '../model/activity';
 import { CATALOG_BY_KIND } from '../model/catalog';
 import {
+  addAnim,
   addBubble,
   addTeam,
   duplicateItems,
@@ -28,6 +29,7 @@ import {
   updateTeam,
   updateZone,
 } from '../model/ops';
+import { AnimPane } from './AnimPane';
 import { useEditor } from './store';
 
 // 오른쪽 속성 패널: 고른 것에 따라 내용이 바뀐다. 아무것도 안 골랐으면 활동 설정.
@@ -36,11 +38,6 @@ export const ZONE_COLORS = ['#3f6fc4', '#f2b48a', '#a9d18e', '#ffe08a', '#f4a3a3
 export const LINE_COLORS = ['#ffffff', '#7ccf4a', '#e5484d', '#f5b400', '#2f6fdf', '#1d2433'];
 const STEP = Math.PI / 12; // 15°
 
-const BALL_MOVES: { id: BallMove; name: string; hint: string }[] = [
-  { id: 'roll', name: '굴러감', hint: '바닥을 굴러가다 마찰로 느려져 멈춥니다' },
-  { id: 'throw', name: '던짐', hint: '손 높이에서 던져 포물선으로 날아갑니다' },
-  { id: 'bounce', name: '튀김', hint: '던진 뒤 바닥에 두 번 튀고 멈춥니다' },
-];
 
 export function Inspector() {
   const sel = useEditor((s) => s.sel);
@@ -49,8 +46,28 @@ export function Inspector() {
   const kinds = sel.map((id) => itemKind(activity, sceneIdx, id));
   const only = (k: ItemKind) => kinds.length > 0 && kinds.every((v) => v === k);
   const single = sel.length === 1;
+  const tab = useEditor((s) => s.rightTab);
+  const setTab = useEditor((s) => s.setRightTab);
+  const animCount = activity.scenes[sceneIdx].anims.length;
+  const showAnims = tab === 'anims' || only('anim');
   return (
     <aside className="inspector" aria-label="속성">
+      <div className="tabs" role="tablist">
+        <button role="tab" aria-selected={!showAnims} className={!showAnims ? 'on' : ''} onClick={() => setTab('props')}>
+          속성
+        </button>
+        <button role="tab" aria-selected={showAnims} className={showAnims ? 'on' : ''} onClick={() => setTab('anims')}>
+          애니메이션{animCount ? ` ${animCount}` : ''}
+        </button>
+      </div>
+      {showAnims ? <AnimPane /> : <PropsContent sel={sel} only={only} single={single} />}
+    </aside>
+  );
+}
+
+function PropsContent({ sel, only, single }: { sel: string[]; only: (k: ItemKind) => boolean; single: boolean }) {
+  return (
+    <>
       {!sel.length && <ActivityPanel />}
       {only('obj') && <ObjectPanel ids={sel} />}
       {single && only('zone') && <ZonePanel id={sel[0]} />}
@@ -59,7 +76,7 @@ export function Inspector() {
       {single && only('bubble') && <MarkPanel id={sel[0]} kind="bubble" />}
       {sel.length > 1 && !only('obj') && <h2>{sel.length}개 고름</h2>}
       {sel.length > 0 && !only('arrow') && !only('bubble') && <ArrangePanel ids={sel} />}
-    </aside>
+    </>
   );
 }
 
@@ -237,6 +254,21 @@ function ObjectPanel({ ids }: { ids: string[] }) {
   const canFall = objs.every((o) => o.kind === 'cone' || o.kind === 'cup');
   const allFallen = ids.every((id) => scene.poses[id]?.fallen);
 
+  /** 넘어지기·나타나기·사라지기: 고른 것 모두에 붙이고, 둘째부터는 '앞과 함께' */
+  const addSimple = (kind: AnimKind, start: AnimStart) => {
+    const st = useEditor.getState();
+    let next = st.activity;
+    const made: string[] = [];
+    ids.forEach((id, i) => {
+      const res = addAnim(next, sceneIdx, { objId: id, kind, start: i === 0 ? start : 'with', delay: 0 });
+      next = res.activity;
+      made.push(res.id);
+    });
+    st.commit(next);
+    setSel(made);
+    st.setRightTab('anims');
+  };
+
   return (
     <>
       <h2>
@@ -309,6 +341,29 @@ function ObjectPanel({ ids }: { ids: string[] }) {
           </button>
         ))}
       </div>
+      <h3>애니메이션 추가</h3>
+      <div className="anim-add">
+        <button
+          title="바닥을 누르면 그곳까지 움직입니다. 여러 명을 골랐으면 간격을 유지한 채 함께 움직입니다"
+          onClick={() => useEditor.getState().setTool({ t: 'path', ids })}
+        >
+          이동
+        </button>
+        {canFall && (
+          <button
+            title="공이 지나가며 닿을 때 쓰러집니다(공 이동이 없으면 앞 애니메이션과 함께)"
+            onClick={() => addSimple('fall', 'hit')}
+          >
+            넘어지기
+          </button>
+        )}
+        <button title="숨어 있다가 나타납니다" onClick={() => addSimple('appear', 'click')}>
+          나타나기
+        </button>
+        <button title="보이다가 사라집니다" onClick={() => addSimple('disappear', 'click')}>
+          사라지기
+        </button>
+      </div>
       <h3>이 장면에서</h3>
       <div className="stack">
         <button className={highlighted ? 'on' : ''} onClick={() => run((v) => toggleHighlight(v, sceneIdx, ids))}>
@@ -328,42 +383,25 @@ function ObjectPanel({ ids }: { ids: string[] }) {
         )}
         <button
           className={allHidden ? 'on' : ''}
-          title="이 장면에서만 안 보이게 합니다(나갔다 들어오는 학생, 치운 장비)"
+          title="장면이 시작될 때 안 보입니다. '나타나기' 애니메이션으로 보이게 할 수 있습니다"
           onClick={() =>
             run((v) => setPoses(v, sceneIdx, Object.fromEntries(ids.map((id) => [id, { hidden: !allHidden }]))))
           }
         >
-          {allHidden ? '이 장면에서 보이기' : '이 장면에서 숨기기'}
+          {allHidden ? '숨김 풀기' : '숨긴 채 시작'}
         </button>
         {canFall && (
           <button
             className={allFallen ? 'on' : ''}
-            title="공에 맞아 넘어진 상태. 공이 지나가는 장면이면 맞는 순간 쓰러집니다"
+            title="장면이 시작될 때 넘어져 있습니다"
             onClick={() =>
               run((v) => setPoses(v, sceneIdx, Object.fromEntries(ids.map((id) => [id, { fallen: !allFallen }]))))
             }
           >
-            {allFallen ? '다시 세우기' : '넘어뜨리기'}
+            {allFallen ? '세운 채 시작' : '넘어진 채 시작'}
           </button>
         )}
       </div>
-      {single && first.kind === 'ball' && sceneIdx > 0 && (
-        <>
-          <h3>앞 장면에서 이 자리로 올 때</h3>
-          <div className="seg">
-            {BALL_MOVES.map((m) => (
-              <button
-                key={m.id}
-                className={(scene.poses[first.id]?.move ?? 'roll') === m.id ? 'on' : ''}
-                title={m.hint}
-                onClick={() => run((v) => setPoses(v, sceneIdx, { [first.id]: { move: m.id } }))}
-              >
-                {m.name}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
     </>
   );
 }

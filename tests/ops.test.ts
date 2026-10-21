@@ -18,7 +18,7 @@ import {
 
 function withTwoScenes(): Activity {
   const a = emptyActivity('검사');
-  a.scenes.push({ id: 's2', caption: '', poses: {}, bubbles: [], arrows: [], highlights: [] });
+  a.scenes.push({ id: 's2', caption: '', poses: {}, bubbles: [], arrows: [], highlights: [], anims: [] });
   return a;
 }
 

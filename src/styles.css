@@ -41,7 +41,7 @@ button {
 
 .workspace {
   display: grid;
-  grid-template-columns: 200px minmax(0, 1fr) 260px;
+  grid-template-columns: 200px minmax(0, 1fr) 300px;
   min-height: 0;
 }
 
@@ -856,7 +856,12 @@ textarea:focus-visible {
 
 .anim-head h2 {
   margin: 0;
-  font-size: 16px;
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.anim-head .play {
+  white-space: nowrap;
 }
 
 .anim-head .play {
@@ -902,7 +907,7 @@ textarea:focus-visible {
 
 .anim-row {
   display: grid;
-  grid-template-columns: 22px 12px minmax(0, 1fr);
+  grid-template-columns: 14px 20px 12px minmax(0, 1fr);
   grid-template-rows: auto 8px;
   column-gap: 6px;
   row-gap: 4px;
@@ -1084,4 +1089,182 @@ textarea:focus-visible {
   border-radius: 7px;
   background: #fff;
   color: var(--ink);
+}
+
+/* ── 애니메이션 창: 시간 막대 끌기, 재생 헤드, 손잡이 ── */
+
+.anim-tracks {
+  position: relative;
+}
+
+.anim-row {
+  cursor: pointer;
+}
+
+.grip {
+  cursor: grab;
+  color: #9aa3b2;
+  font-size: 12px;
+  letter-spacing: -2px;
+  touch-action: none;
+  user-select: none;
+}
+
+.anim-bar {
+  cursor: ew-resize;
+  cursor: grab;
+  touch-action: none;
+}
+
+.anim-bar-end {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  right: -1px;
+  width: 6px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.25);
+  cursor: ew-resize;
+}
+
+.anim-bar.k-highlight,
+.anim-bar.k-show {
+  background: #e0a800;
+}
+
+.anim-bar.k-sound {
+  background: #12a5a5;
+}
+
+.dot.k-sound {
+  background: #12a5a5;
+}
+
+.dot.k-show {
+  background: #e0a800;
+}
+
+.drop-line {
+  height: 3px;
+  margin: 1px 0;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: #e5484d;
+  pointer-events: none;
+}
+
+.anim-ruler-bar {
+  position: relative;
+  height: 26px;
+  border-radius: 6px;
+  background: #eef1f5;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+}
+
+.ruler-label {
+  position: absolute;
+  top: 5px;
+  transform: translateX(-50%);
+  font-size: 11px;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.ruler-label:first-of-type {
+  transform: none;
+}
+
+.ruler-label.end {
+  transform: translateX(-100%);
+}
+
+.ruler-head {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  margin-left: -1.5px;
+  background: #e5484d;
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.scrub-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: #fff3f3;
+  font-size: 13px;
+  color: #9b1c1c;
+}
+
+.scrub-info button {
+  padding: 4px 8px;
+  border: 1px solid #f2c4c4;
+  border-radius: 6px;
+  background: #fff;
+  color: #9b1c1c;
+  font-size: 12px;
+}
+
+.anim-sound {
+  position: relative;
+}
+
+.ghost {
+  padding: 6px 10px;
+  border: 1px dashed #b8c4d6;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.sound-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.sound-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sound-row button:not(.icon) {
+  padding: 6px 10px;
+  border: 1px solid var(--panel-line);
+  border-radius: 7px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.sound-row .icon {
+  font-size: 13px;
+  color: var(--accent);
 }

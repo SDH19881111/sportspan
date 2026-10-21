@@ -31,6 +31,8 @@ export interface Playing {
   all: boolean;
   /** 재생을 누를 때마다 새 번호(같은 장면을 다시 틀어도 처음부터) */
   run: number;
+  /** 이 시각(초)부터 튼다(여기서부터 재생) */
+  from: number;
 }
 
 /** 키보드 Delete가 무엇을 지울지: 화면에서 고른 것 / 장면 띠에서 고른 장면 */
@@ -78,7 +80,13 @@ interface EditorState {
   future: Activity[];
   gestureBase: Activity | null;
   playing: Playing | null;
-  play: (scene: number, all: boolean) => void;
+  play: (scene: number, all: boolean, from?: number) => void;
+  /** 재생 중 지금 시각(애니메이션 창의 재생 헤드) */
+  playT: number;
+  setPlayT: (t: number) => void;
+  /** 되감기: 편집 화면을 이 시각의 모습으로 보여 준다(null이면 장면 시작 모습) */
+  scrubT: number | null;
+  setScrubT: (t: number | null) => void;
   stop: () => void;
   focus: Focus;
   setFocus: (f: Focus) => void;
@@ -129,11 +137,22 @@ export const useEditor = create<EditorState>((set, get) => ({
   future: [],
   gestureBase: null,
   playing: null,
-  play: (scene, all) => {
+  play: (scene, all, from = 0) => {
     const n = get().activity.scenes.length;
     if (scene < 0 || scene >= n) return;
-    set({ playing: { scene, all, run: (get().playing?.run ?? 0) + 1 }, sceneIdx: scene, tool: { t: 'select' }, draft: null });
+    set({
+      playing: { scene, all, from, run: (get().playing?.run ?? 0) + 1 },
+      sceneIdx: scene,
+      tool: { t: 'select' },
+      draft: null,
+      scrubT: null,
+      playT: from,
+    });
   },
+  playT: 0,
+  setPlayT: (playT) => set({ playT }),
+  scrubT: null,
+  setScrubT: (scrubT) => set({ scrubT }),
   stop: () => set({ playing: null }),
   focus: 'canvas',
   setFocus: (focus) => set({ focus }),
@@ -217,7 +236,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   setSceneIdx: (sceneIdx) => {
     const { activity, sel } = get();
     const idx = Math.max(0, Math.min(activity.scenes.length - 1, sceneIdx));
-    set({ sceneIdx: idx, sel: validSel(sel, activity, idx), lastMerge: null });
+    set({ sceneIdx: idx, sel: validSel(sel, activity, idx), lastMerge: null, scrubT: null });
   },
 }));
 

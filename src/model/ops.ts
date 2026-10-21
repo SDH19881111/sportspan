@@ -100,7 +100,8 @@ export function removeObjects(a: Activity, ids: string[]): Activity {
     for (const id of ids) delete s.poses[id];
     s.bubbles = s.bubbles.filter((b) => !b.objId || !ids.includes(b.objId));
     s.highlights = s.highlights.filter((h) => !ids.includes(h));
-    s.anims = s.anims.filter((an) => !ids.includes(an.objId));
+    s.anims = s.anims.filter((an) => !an.objId || !ids.includes(an.objId));
+    for (const an of s.anims) if (an.carry && ids.includes(an.carry.ballId)) delete an.carry;
   }
   return next;
 }
@@ -200,6 +201,7 @@ export function removeSceneMark(a: Activity, sceneIdx: number, id: string): Acti
   const next = clone(a);
   const s = next.scenes[sceneIdx];
   s.arrows = s.arrows.filter((v) => v.id !== id);
+  s.anims = s.anims.filter((v) => v.markId !== id);
   s.bubbles = s.bubbles.filter((v) => v.id !== id);
   return next;
 }
@@ -350,7 +352,7 @@ export function removeItems(a: Activity, sceneIdx: number, ids: string[]): Activ
   const s = next.scenes[sceneIdx];
   s.arrows = s.arrows.filter((v) => !ids.includes(v.id));
   s.bubbles = s.bubbles.filter((v) => !ids.includes(v.id));
-  s.anims = s.anims.filter((v) => !ids.includes(v.id));
+  s.anims = s.anims.filter((v) => !ids.includes(v.id) && !(v.markId && ids.includes(v.markId)));
   return next;
 }
 
@@ -626,4 +628,86 @@ export function pasteItems(a: Activity, clip: Clip, offset: number): { activity:
     made.push(id);
   }
   return { activity: next, ids: made };
+}
+
+/** 여러 애니메이션에 같은 설정을 한꺼번에 */
+export function updateAnims(
+  a: Activity,
+  sceneIdx: number,
+  ids: string[],
+  patch: Partial<Pick<Anim, 'start' | 'delay' | 'speed' | 'style'>>,
+): Activity {
+  let next = a;
+  for (const id of ids) next = updateAnim(next, sceneIdx, id, patch);
+  return next;
+}
+
+/**
+ * 고른 애니메이션들을 목록의 toIndex 자리(옮기기 전 목록 기준, 그 줄 앞)로 옮긴다.
+ * 고른 것끼리의 순서는 그대로 둔다.
+ */
+export function reorderAnims(a: Activity, sceneIdx: number, ids: string[], toIndex: number): Activity {
+  const list = a.scenes[sceneIdx].anims;
+  const moving = list.filter((an) => ids.includes(an.id));
+  if (!moving.length) return a;
+  const before = list.slice(0, toIndex).filter((an) => !ids.includes(an.id));
+  const after = list.slice(toIndex).filter((an) => !ids.includes(an.id));
+  const order = [...before, ...moving, ...after];
+  if (order.every((an, i) => an === list[i])) return a;
+  const next = clone(a);
+  next.scenes[sceneIdx].anims = order.map((an) => next.scenes[sceneIdx].anims.find((v) => v.id === an.id)!);
+  return next;
+}
+
+/** 꺾는 점 추가: 가장 긴 구간의 가운데에 넣는다 */
+export function addVia(a: Activity, sceneIdx: number, animId: string, from: { x: number; z: number }): Activity {
+  const next = clone(a);
+  const an = next.scenes[sceneIdx].anims.find((v) => v.id === animId);
+  if (!an || an.kind !== 'move' || !an.to) return a;
+  const pts = [from, ...(an.via ?? []), an.to];
+  let best = 0;
+  let bestLen = -1;
+  for (let i = 1; i < pts.length; i++) {
+    const L = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].z - pts[i - 1].z);
+    if (L > bestLen) {
+      bestLen = L;
+      best = i;
+    }
+  }
+  const mid = { x: round((pts[best - 1].x + pts[best].x) / 2), z: round((pts[best - 1].z + pts[best].z) / 2) };
+  const via = [...(an.via ?? [])];
+  via.splice(best - 1, 0, mid);
+  an.via = via;
+  return next;
+}
+
+export function moveVia(a: Activity, sceneIdx: number, animId: string, index: number, p: { x: number; z: number }): Activity {
+  const next = clone(a);
+  const an = next.scenes[sceneIdx].anims.find((v) => v.id === animId);
+  if (!an?.via?.[index]) return a;
+  const [x, z] = clampToField(a, p.x, p.z);
+  an.via[index] = { x, z };
+  return next;
+}
+
+export function removeVia(a: Activity, sceneIdx: number, animId: string, index?: number): Activity {
+  const next = clone(a);
+  const an = next.scenes[sceneIdx].anims.find((v) => v.id === animId);
+  if (!an?.via) return a;
+  if (index === undefined) delete an.via;
+  else {
+    an.via.splice(index, 1);
+    if (!an.via.length) delete an.via;
+  }
+  return next;
+}
+
+/** 학생 이동에 공 가지고 가기를 붙이거나 뗀다 */
+export function setCarry(a: Activity, sceneIdx: number, animId: string, carry: Anim['carry'] | null): Activity {
+  const next = clone(a);
+  const an = next.scenes[sceneIdx].anims.find((v) => v.id === animId);
+  if (!an) return a;
+  if (carry) an.carry = carry;
+  else delete an.carry;
+  return next;
 }

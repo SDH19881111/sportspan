@@ -13,6 +13,7 @@ import {
   rotateObjects,
   ungroupItems,
 } from '../model/ops';
+import { unlockAudio } from '../audio/sfx';
 import { floorApi } from './Interaction';
 import { selectedObjIds, useEditor } from './store';
 
@@ -65,6 +66,7 @@ export function useShortcuts(onSave: () => void) {
       if (e.key === 'Escape') {
         st.setTool({ t: 'select' });
         st.setSel([]);
+        st.setScrubT(null);
         return;
       }
       if (e.key === 'PageDown' || e.key === 'PageUp') {
@@ -74,6 +76,7 @@ export function useShortcuts(onSave: () => void) {
       }
       if (e.key === ' ') {
         e.preventDefault();
+        unlockAudio();
         st.play(st.sceneIdx, false);
         return;
       }

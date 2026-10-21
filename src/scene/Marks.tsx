@@ -119,54 +119,70 @@ export function AnimBadge(p: {
  * 던지기·튕기기는 공이 날아가는 높이를 점으로 보여 준다.
  */
 export function PathMark(p: {
-  x0: number;
-  z0: number;
-  x1: number;
-  z1: number;
+  /** 출발점, 꺾는 점들, 도착점 */
+  points: { x: number; z: number }[];
   color: string;
   radius: number;
   selected?: boolean;
-  heights?: number[]; // 길을 따라 고르게 나눈 높이(던지기)
+  /** 공중으로 날아가는 길(던지기): 고르게 나눈 점들의 위치 */
+  air?: { x: number; y: number; z: number }[];
   onEndDown?: (e: ThreeEvent<PointerEvent>) => void;
+  /** 꺾는 점 손잡이를 누를 때(i = 꺾는 점 번호) */
+  onViaDown?: (i: number, e: ThreeEvent<PointerEvent>) => void;
 }) {
-  const len = Math.hypot(p.x1 - p.x0, p.z1 - p.z0);
-  const angle = Math.atan2(p.z1 - p.z0, p.x1 - p.x0);
-  const dash = 0.25;
-  const n = Math.max(1, Math.floor(len / (dash * 2)));
   const lineColor = p.selected ? '#2563eb' : p.color;
+  const dash = 0.25;
   const dashes = [];
-  for (let i = 0; i < n; i++) {
-    const k = (i * dash * 2 + dash / 2) / len;
-    if (k > 1) break;
-    dashes.push(
-      <mesh
-        key={i}
-        position={[p.x0 + (p.x1 - p.x0) * k, 0.018, p.z0 + (p.z1 - p.z0) * k]}
-        rotation={[-Math.PI / 2, 0, -angle]}
-      >
-        <planeGeometry args={[dash, p.selected ? 0.12 : 0.07]} />
-        <meshBasicMaterial color={lineColor} transparent opacity={0.9} />
-      </mesh>,
-    );
+  for (let s = 1; s < p.points.length; s++) {
+    const a = p.points[s - 1];
+    const b = p.points[s];
+    const len = Math.hypot(b.x - a.x, b.z - a.z);
+    if (len < 1e-6) continue;
+    const angle = Math.atan2(b.z - a.z, b.x - a.x);
+    const n = Math.max(1, Math.floor(len / (dash * 2)));
+    for (let i = 0; i < n; i++) {
+      const k = (i * dash * 2 + dash / 2) / len;
+      if (k > 1) break;
+      dashes.push(
+        <mesh
+          key={`${s}-${i}`}
+          position={[a.x + (b.x - a.x) * k, 0.018, a.z + (b.z - a.z) * k]}
+          rotation={[-Math.PI / 2, 0, -angle]}
+        >
+          <planeGeometry args={[dash, p.selected ? 0.12 : 0.07]} />
+          <meshBasicMaterial color={lineColor} transparent opacity={0.9} />
+        </mesh>,
+      );
+    }
   }
-  const dots = (p.heights ?? []).map((h, i, arr) => {
-    const k = arr.length > 1 ? i / (arr.length - 1) : 0;
-    return (
-      <mesh key={`h${i}`} position={[p.x0 + (p.x1 - p.x0) * k, h, p.z0 + (p.z1 - p.z0) * k]}>
-        <sphereGeometry args={[0.04, 6, 4]} />
-        <meshBasicMaterial color={lineColor} />
-      </mesh>
-    );
-  });
+  const dots = (p.air ?? []).map((q, i) => (
+    <mesh key={`h${i}`} position={[q.x, q.y, q.z]}>
+      <sphereGeometry args={[0.04, 6, 4]} />
+      <meshBasicMaterial color={lineColor} />
+    </mesh>
+  ));
+  const last = p.points[p.points.length - 1];
+  const vias = p.points.slice(1, -1);
   return (
     <group>
       {dashes}
       {dots}
-      <mesh position={[p.x1, 0.02, p.z1]} rotation={[-Math.PI / 2, 0, 0]} onPointerDown={p.onEndDown}>
+      {vias.map((v, i) => (
+        <mesh
+          key={`v${i}`}
+          position={[v.x, 0.025, v.z]}
+          rotation={[-Math.PI / 2, 0, 0]}
+          onPointerDown={p.onViaDown && ((e) => p.onViaDown!(i, e))}
+        >
+          <circleGeometry args={[0.16, 16]} />
+          <meshBasicMaterial color={p.selected ? '#2563eb' : '#ffffff'} />
+        </mesh>
+      ))}
+      <mesh position={[last.x, 0.02, last.z]} rotation={[-Math.PI / 2, 0, 0]} onPointerDown={p.onEndDown}>
         <circleGeometry args={[p.radius + 0.08, 24]} />
         <meshBasicMaterial color={p.color} transparent opacity={0.4} />
       </mesh>
-      <mesh position={[p.x1, 0.021, p.z1]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh position={[last.x, 0.021, last.z]} rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[p.radius + 0.08, p.radius + 0.14, 24]} />
         <meshBasicMaterial color={lineColor} />
       </mesh>

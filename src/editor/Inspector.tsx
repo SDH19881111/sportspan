@@ -363,6 +363,9 @@ function ObjectPanel({ ids }: { ids: string[] }) {
         <button title="보이다가 사라집니다" onClick={() => addSimple('disappear', 'click')}>
           사라지기
         </button>
+        <button title="그 순간부터 발밑에 강조 원이 깜빡입니다" onClick={() => addSimple('highlight', 'click')}>
+          강조
+        </button>
       </div>
       <h3>이 장면에서</h3>
       <div className="stack">
@@ -506,6 +509,7 @@ function LinePanel({ id }: { id: string }) {
 function MarkPanel({ id, kind }: { id: string; kind: 'arrow' | 'bubble' }) {
   const sceneIdx = useEditor((s) => s.sceneIdx);
   const bubble = useEditor((s) => s.activity.scenes[s.sceneIdx].bubbles.find((b) => b.id === id));
+  const hasShow = useEditor((s) => s.activity.scenes[s.sceneIdx].anims.some((an) => an.markId === id));
   const setSel = useEditor((s) => s.setSel);
   const run = useCommit();
   return (
@@ -525,6 +529,23 @@ function MarkPanel({ id, kind }: { id: string; kind: 'arrow' | 'bubble' }) {
         </label>
       )}
       <p className="note">{kind === 'arrow' ? '화살표는' : '말풍선은'} 지금 장면에만 보입니다.</p>
+      {hasShow ? (
+        <p className="note">애니메이션으로 나타납니다. 시점은 애니메이션 탭에서 바꿉니다.</p>
+      ) : (
+        <button
+          className="wide"
+          title="처음엔 숨어 있다가 정한 순간에 나타납니다"
+          onClick={() => {
+            const st = useEditor.getState();
+            const res = addAnim(st.activity, sceneIdx, { kind: 'show', markId: id, start: 'click', delay: 0 });
+            st.commit(res.activity);
+            setSel([res.id]);
+            st.setRightTab('anims');
+          }}
+        >
+          애니메이션으로 나타나기
+        </button>
+      )}
       <button
         className="wide danger"
         onClick={() => {

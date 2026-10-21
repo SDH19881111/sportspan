@@ -40,5 +40,5 @@ export function migrate(a: Activity): Activity {
 }
 
 function order(an: Anim) {
-  return { appear: 0, move: 1, fall: 2, disappear: 3 }[an.kind];
+  return { appear: 0, move: 1, fall: 2, disappear: 3, highlight: 4, show: 4, sound: 4 }[an.kind];
 }

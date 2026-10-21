@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { unlockAudio } from '../audio/sfx';
 import type { Activity, Scene } from '../model/activity';
 import { colorOf } from '../model/activity';
 import { CATALOG_BY_KIND } from '../model/catalog';
@@ -39,10 +40,24 @@ export function SceneStrip() {
           </button>
         ) : (
           <>
-            <button className="play" onClick={() => play(sceneIdx, false)} title="이 장면의 애니메이션을 처음부터 (Space)">
+            <button
+              className="play"
+              onClick={() => {
+                unlockAudio();
+                play(sceneIdx, false);
+              }}
+              title="이 장면의 애니메이션을 처음부터 (Space)"
+            >
               ▶ 이 장면
             </button>
-            <button className="play" onClick={() => play(0, true)} title="첫 장면부터 끝까지 이어서">
+            <button
+              className="play"
+              onClick={() => {
+                unlockAudio();
+                play(0, true);
+              }}
+              title="첫 장면부터 끝까지 이어서"
+            >
               ▶ 처음부터
             </button>
           </>

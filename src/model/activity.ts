@@ -84,22 +84,34 @@ export type AnimStart = 'click' | 'with' | 'after' | 'hit';
 export type MoveStyle = 'walk' | 'run' | 'roll' | 'throw' | 'bounce';
 export type BallMove = Extract<MoveStyle, 'roll' | 'throw' | 'bounce'>;
 
-export type AnimKind = 'move' | 'fall' | 'appear' | 'disappear';
+/**
+ * 물건 애니메이션: move·fall·appear·disappear·highlight(objId)
+ * 표시 애니메이션: show(markId = 말풍선·화살표 id) — 그 시각에 나타난다
+ * 효과음: sound
+ */
+export type AnimKind = 'move' | 'fall' | 'appear' | 'disappear' | 'highlight' | 'show' | 'sound';
+
+export type SoundKind = 'whistle' | 'bell' | 'beep' | 'clap';
 
 export interface Anim {
   id: string;
-  objId: string;
+  objId?: string; // 물건 애니메이션
+  markId?: string; // show: 말풍선·화살표
+  sound?: SoundKind; // sound
   kind: AnimKind;
   start: AnimStart;
   delay: number; // 초
-  to?: { x: number; z: number }; // move만
+  to?: { x: number; z: number }; // move만: 도착점
+  via?: { x: number; z: number }[]; // move만: 꺾는 점(지나가는 순서대로)
   style?: MoveStyle; // move만
   speed?: number; // 빠르기 배율(1 = 보통, 0.5 = 절반 빠르기로 느리게). 없으면 1
+  /** 학생 move만: 공을 함께 가지고 간다(발 = 드리블, 손 = 들고) */
+  carry?: { ballId: string; hold: 'foot' | 'hand' };
 }
 
 export interface Bubble {
   id: string;
-  objId?: string; // 없으면 화면 위쪽 자막 옆에 뜬다
+  objId?: string; // 말풍선이 붙은 물건
   text: string;
 }
 

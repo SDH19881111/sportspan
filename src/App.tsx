@@ -3,6 +3,7 @@ import { EditorScene } from './editor/EditorScene';
 import { Inspector } from './editor/Inspector';
 import { formatTime, Library } from './editor/Library';
 import { Palette } from './editor/Palette';
+import { Presenter, startPresent } from './present/Presenter';
 import { SceneStrip } from './editor/SceneStrip';
 import { useEditor } from './editor/store';
 import { useShortcuts } from './editor/useShortcuts';
@@ -91,6 +92,8 @@ export function App() {
   const redo = useEditor((s) => s.redo);
   const commit = useEditor((s) => s.commit);
   const setFocus = useEditor((s) => s.setFocus);
+  const presenting = useEditor((s) => s.presenting);
+  const endPresent = useEditor((s) => s.endPresent);
   const [view, setView] = useState<CameraView>('angle');
   const [viewNonce, setViewNonce] = useState(0);
   const [libOpen, setLibOpen] = useState(false);
@@ -98,6 +101,9 @@ export function App() {
   useShortcuts(save.flush);
   const scene = activity.scenes[sceneIdx];
   const playingScene = playing ? activity.scenes[playing.scene] : null;
+
+  // 발표 중에는 편집 화면을 내린다(3D 화면을 둘 그리지 않게)
+  if (presenting !== null) return <Presenter startScene={presenting} onExit={endPresent} />;
 
   return (
     <div className="app">
@@ -119,6 +125,13 @@ export function App() {
             다시 하기
           </button>
         </div>
+        <button
+          className="present-btn"
+          onClick={() => startPresent(0)}
+          title="전체 화면으로 처음부터 발표 (F5, 지금 장면부터는 Shift+F5)"
+        >
+          ▶ 발표
+        </button>
         <div className="views" role="group" aria-label="카메라">
           {VIEWS.map((v) => (
             <button

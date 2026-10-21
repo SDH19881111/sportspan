@@ -96,6 +96,10 @@ interface EditorState {
   setGrid: (patch: Partial<GridSettings>) => void;
   marquee: Marquee | null;
   setMarquee: (m: Marquee | null) => void;
+  /** 발표 화면: 몇 번째 장면부터 발표 중인지(null이면 편집 중) */
+  presenting: number | null;
+  present: (fromScene: number) => void;
+  endPresent: (atScene: number) => void;
   /** 재생 빠르기(0.5배 ~ 2배) */
   playRate: number;
   setPlayRate: (r: number) => void;
@@ -154,6 +158,13 @@ export const useEditor = create<EditorState>((set, get) => ({
   scrubT: null,
   setScrubT: (scrubT) => set({ scrubT }),
   stop: () => set({ playing: null }),
+  presenting: null,
+  present: (fromScene) =>
+    set({ presenting: fromScene, playing: null, tool: { t: 'select' }, draft: null, scrubT: null, marquee: null }),
+  endPresent: (atScene) => {
+    set({ presenting: null });
+    get().setSceneIdx(atScene);
+  },
   focus: 'canvas',
   setFocus: (focus) => set({ focus }),
   rightTab: 'props',

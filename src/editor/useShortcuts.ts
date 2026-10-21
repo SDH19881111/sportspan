@@ -14,6 +14,7 @@ import {
   ungroupItems,
 } from '../model/ops';
 import { unlockAudio } from '../audio/sfx';
+import { startPresent } from '../present/Presenter';
 import { floorApi } from './Interaction';
 import { selectedObjIds, useEditor } from './store';
 
@@ -37,6 +38,14 @@ export function useShortcuts(onSave: () => void) {
       const st = useEditor.getState();
       const mod = e.ctrlKey || e.metaKey;
       const key = e.key.toLowerCase();
+      if (st.presenting !== null) return; // 발표 화면이 키를 따로 받는다
+
+      // F5 처음부터 발표, Shift+F5 지금 장면부터(PPT와 같게)
+      if (e.key === 'F5' && !mod) {
+        e.preventDefault();
+        startPresent(e.shiftKey ? st.sceneIdx : 0);
+        return;
+      }
 
       if (mod && key === 's') {
         e.preventDefault();

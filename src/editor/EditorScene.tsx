@@ -285,11 +285,17 @@ function PlaybackScene({ activity }: { activity: Activity }) {
     else st.stop();
   });
 
+  return <ShowScene activity={activity} sceneIdx={playing.scene} timeline={timeline} t={t} />;
+}
+
+/** 손댈 수 없는 장면 모습(재생·발표 화면): t초의 물건 자리와 표시 */
+export function ShowScene(props: { activity: Activity; sceneIdx: number; timeline: Timeline; t: number }) {
+  const { activity, sceneIdx, timeline, t } = props;
   return (
     <>
       <Field field={activity.field} />
       <Items activity={activity} timeline={timeline} t={t} />
-      <SceneMarks activity={activity} sceneIdx={playing.scene} timeline={timeline} t={t} />
+      <SceneMarks activity={activity} sceneIdx={sceneIdx} timeline={timeline} t={t} />
     </>
   );
 }

@@ -356,6 +356,9 @@ function onItemDown(id: string, e: ThreeEvent<PointerEvent>) {
         if (Math.hypot(p[0] - from.x, p[1] - from.z) < 0.2) return;
         const res = addMoves(now.activity, now.sceneIdx, [id], { x: p[0], z: p[1] });
         now.commit(res.activity);
+        // 바닥을 눌러 만들 때처럼 고르기로 돌아간다. 켜 둔 채 남으면 다시 누른 버튼이 도구를 끄고,
+        // 이어서 끈 학생은 이동 대신 출발 자리가 옮겨진다.
+        now.setTool({ t: 'select' });
         now.setSel(res.ids);
         now.setRightTab('anims');
       },

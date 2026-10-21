@@ -115,7 +115,28 @@ export function Palette() {
   );
 }
 
-function tipFor(tool: Tool) {
+/** 3D 화면 위쪽에 띄우는 짧은 안내. 고르기일 때는 손에 익히기 어려운 조작만 한 줄로. */
+export function ToolHint() {
+  const tool = useEditor((s) => s.tool);
+  const playing = useEditor((s) => s.playing);
+  if (playing) return null;
+  if (tool.t === 'select')
+    return <p className="tool-hint quiet">끌기: 화면 돌리기 · Ctrl+끌기: 여러 개 고르기 · Shift+누르기: 더 고르기</p>;
+  const tip = tipFor(tool);
+  return (
+    <p className="tool-hint">
+      {tip}
+      {!tip.includes('Esc') && (
+        <>
+          {' '}
+          <kbd>Esc</kbd> 그만하기
+        </>
+      )}
+    </p>
+  );
+}
+
+export function tipFor(tool: Tool) {
   switch (tool.t) {
     case 'select':
       return '물건을 눌러 고르고 끌어서 옮깁니다. Shift를 누른 채 누르면 하나씩 더하고, Ctrl을 누른 채 빈 바닥을 끌면 사각형 안의 것을 한꺼번에 고릅니다. 빈 바닥을 끌면 화면이 돌고, 아무것도 안 골랐을 때 방향키로 화면을 옮깁니다.';

@@ -11,7 +11,8 @@ export function cameraSpot(view: CameraView, field: FieldData) {
   const span = Math.max(field.width, field.depth * 1.6);
   switch (view) {
     case 'top':
-      return { pos: new THREE.Vector3(0, span * 0.95, 0.001), target: new THREE.Vector3(0, 0, 0) };
+      // 정확히 바로 위면 화면 방향이 정해지지 않아 돌려 둔 각도가 남는다. 아주 조금 남쪽에서 내려다본다.
+      return { pos: new THREE.Vector3(0, span * 0.95, span * 0.02), target: new THREE.Vector3(0, 0, 0) };
     case 'angle':
       return {
         pos: new THREE.Vector3(0, span * 0.55, field.depth * 0.5 + span * 0.45),
@@ -39,7 +40,13 @@ function CameraRig({ view, field, nonce }: { view: CameraView; field: FieldData;
     camera.position.lerp(g.pos, k);
     c.target.lerp(g.target, k);
     c.update();
-    if (camera.position.distanceTo(g.pos) < 0.02 && c.target.distanceTo(g.target) < 0.02) goal.current = null;
+    if (camera.position.distanceTo(g.pos) < 0.02 && c.target.distanceTo(g.target) < 0.02) {
+      // 마지막에 정확히 맞춘다(덜 온 만큼 시점 방향이 비뚤어져 남지 않게)
+      camera.position.copy(g.pos);
+      c.target.copy(g.target);
+      c.update();
+      goal.current = null;
+    }
   });
   return null;
 }

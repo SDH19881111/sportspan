@@ -119,6 +119,7 @@ button {
 }
 
 .caption {
+  white-space: pre-line; /* 자막 칸에서 Enter로 바꾼 줄을 그대로 */
   position: absolute;
   left: 50%;
   bottom: 20px;
@@ -433,18 +434,28 @@ textarea:focus-visible {
   white-space: nowrap;
 }
 
-.caption-edit input {
+.caption-edit textarea {
   flex: 1;
   min-width: 0;
   font: inherit;
   font-size: 18px;
+  line-height: 1.4;
   color: #fff;
   background: transparent;
   border: 0;
   padding: 6px 4px;
+  resize: none;
+  /* 쓴 만큼 늘어나되(최대 3줄) 평소에는 한 줄만 차지해 경기장을 덜 가린다 */
+  field-sizing: content;
+  max-height: calc(1.4em * 3 + 12px);
+  overflow-y: auto;
 }
 
-.caption-edit input::placeholder {
+.caption-edit textarea:focus {
+  outline: none;
+}
+
+.caption-edit textarea::placeholder {
   color: #8a96ad;
 }
 
@@ -460,7 +471,9 @@ textarea:focus-visible {
 
 .bubble {
   position: relative;
+  width: max-content; /* 3D 위 상자는 폭이 0이라 그냥 두면 낱말마다 줄이 바뀐다 */
   max-width: 220px;
+  white-space: pre-line;
   padding: 8px 12px;
   border-radius: 14px;
   background: #fff;
@@ -468,7 +481,8 @@ textarea:focus-visible {
   font: 600 15px/1.35 var(--font);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
   word-break: keep-all;
-  transform: translateY(-50%);
+  /* 꼬리 끝이 머리보다 조금 위에 오게: 위에서 볼 때 말풍선이 학생을 덮어 학생을 못 고르던 문제 */
+  transform: translateY(calc(-50% - 20px));
   cursor: pointer;
   user-select: none;
 }
@@ -491,6 +505,59 @@ textarea:focus-visible {
 .bubble.empty {
   color: #9aa3b2;
   font-weight: 400;
+}
+
+/* 장면 순서 바꾸기: 이름표 + ◀ ▶ */
+.scene-order {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 4px;
+  justify-items: stretch;
+}
+
+.scene-order span {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  color: #b9c3d6;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* 3D 화면 위쪽 도구 안내(왼쪽 패널 맨 아래 안내는 작은 화면에서 안 보인다) */
+.tool-hint {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - 24px);
+  margin: 0;
+  padding: 7px 14px;
+  border-radius: 9px;
+  background: rgba(24, 35, 58, 0.85);
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.4;
+  text-align: center;
+  word-break: keep-all;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.tool-hint.quiet {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: rgba(24, 35, 58, 0.45);
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
+.tool-hint kbd {
+  padding: 0 5px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
+  font: inherit;
+  font-size: 0.9em;
 }
 
 /* ── 장면 띠 ─────────────────────────────────── */

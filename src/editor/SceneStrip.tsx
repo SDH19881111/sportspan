@@ -113,28 +113,32 @@ export function SceneStrip() {
         )}
       </div>
       <div className="scene-tools">
-        <button
-          disabled={!!playing || sceneIdx === 0}
-          title="앞으로"
-          aria-label="장면을 앞으로"
-          onClick={() => {
-            commit(moveScene(activity, sceneIdx, -1));
-            setSceneIdx(sceneIdx - 1);
-          }}
-        >
-          ◀
-        </button>
-        <button
-          disabled={!!playing || sceneIdx === n - 1}
-          title="뒤로"
-          aria-label="장면을 뒤로"
-          onClick={() => {
-            commit(moveScene(activity, sceneIdx, 1));
-            setSceneIdx(sceneIdx + 1);
-          }}
-        >
-          ▶
-        </button>
+        {/* 앞뒤 장면 넘기기로 오해하지 않게 '장면 순서' 이름표를 붙인다 */}
+        <div className="scene-order" role="group" aria-label="장면 순서 바꾸기">
+          <span>장면 순서</span>
+          <button
+            disabled={!!playing || sceneIdx === 0}
+            title="이 장면을 한 칸 앞으로 옮기기"
+            aria-label="이 장면을 앞으로 옮기기"
+            onClick={() => {
+              commit(moveScene(activity, sceneIdx, -1));
+              setSceneIdx(sceneIdx - 1);
+            }}
+          >
+            ◀
+          </button>
+          <button
+            disabled={!!playing || sceneIdx === n - 1}
+            title="이 장면을 한 칸 뒤로 옮기기"
+            aria-label="이 장면을 뒤로 옮기기"
+            onClick={() => {
+              commit(moveScene(activity, sceneIdx, 1));
+              setSceneIdx(sceneIdx + 1);
+            }}
+          >
+            ▶
+          </button>
+        </div>
         <button
           className="danger"
           disabled={!!playing || n <= 1}

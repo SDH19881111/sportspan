@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { EditorScene } from './editor/EditorScene';
 import { Inspector } from './editor/Inspector';
 import { formatTime, Library } from './editor/Library';
-import { Palette } from './editor/Palette';
+import { Palette, ToolHint } from './editor/Palette';
 import { Presenter, startPresent } from './present/Presenter';
 import { SceneStrip } from './editor/SceneStrip';
 import { useEditor } from './editor/store';
@@ -154,14 +154,16 @@ export function App() {
             <Stage field={activity.field} view={view} viewNonce={viewNonce}>
               <EditorScene />
             </Stage>
+            <ToolHint />
             {playingScene ? (
               playingScene.caption && <p className="caption">{playingScene.caption}</p>
             ) : (
               <div className="caption-edit">
                 <label htmlFor="scene-caption">장면 {sceneIdx + 1} 설명</label>
-                <input
+                <textarea
                   id="scene-caption"
-                  placeholder="이 장면에서 아이들이 할 일을 적어 주세요. 발표할 때 자막으로 크게 나옵니다."
+                  rows={1}
+                  placeholder="이 장면에서 아이들이 할 일을 적어 주세요. 발표할 때 자막으로 크게 나옵니다. (Enter: 줄 바꾸기)"
                   value={scene.caption}
                   onChange={(e) => commit(setCaption(activity, sceneIdx, e.target.value), `caption-${scene.id}`)}
                 />

@@ -387,6 +387,7 @@ function onItemDown(id: string, e: ThreeEvent<PointerEvent>) {
   if (additive) ids = already ? cur.filter((v) => !clicked.includes(v)) : [...new Set([...cur, ...clicked])];
   else ids = already ? cur : clicked;
   st.setSel(ids);
+  st.setRightTab('props'); // 물건을 고르면 바로 그 속성을(애니메이션 탭에 머물러 있지 않게)
   if (!clicked.every((v) => ids.includes(v))) return;
 
   const moving = ids.filter((v) => !isLocked(st.activity, v));

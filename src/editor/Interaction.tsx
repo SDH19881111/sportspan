@@ -306,6 +306,7 @@ function startMarquee(ev: PointerEvent) {
     for (const l of a.field.lines) if (!l.locked && inside((l.x1 + l.x2) / 2, 0, (l.z1 + l.z2) / 2)) hits.push(l.id);
     const ids = expandGroups(a, hits);
     now.setSel(additive ? [...new Set([...now.sel, ...ids])] : ids);
+    if (ids.length) now.setRightTab('props');
   };
   window.addEventListener('pointermove', move);
   window.addEventListener('pointerup', up);

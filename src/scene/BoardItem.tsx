@@ -1,3 +1,4 @@
+import { Html } from '@react-three/drei';
 import type { Activity, BoardObject, Pose } from '../model/activity';
 import { colorOf } from '../model/activity';
 import { CATALOG_BY_KIND } from '../model/catalog';
@@ -20,7 +21,16 @@ export function BoardItem({ activity, obj, pose, y = 0, kidPose, tilt, selected 
   return (
     <group position={[pose.x, y, pose.z]} rotation={[0, pose.rot, 0]} userData={{ objId: obj.id }}>
       {obj.kind === 'kid' ? (
-        <Kid shirt={color} pose={kidPose} selected={selected} />
+        <>
+          <Kid shirt={color} pose={kidPose} selected={selected} />
+          {obj.label && (
+            <Html position={[0, 1.55, 0]} center zIndexRange={[15, 5]} style={{ pointerEvents: 'none' }}>
+              <div className="name-tag" style={{ borderColor: color }}>
+                {obj.label}
+              </div>
+            </Html>
+          )}
+        </>
       ) : (
         <Equipment kind={obj.kind} color={color} selected={selected} tilt={tilt} />
       )}

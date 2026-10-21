@@ -1,8 +1,11 @@
 import { useState } from 'react';
-import { BoardItem } from './scene/BoardItem';
-import { Field } from './scene/Field';
+import { EditorScene } from './editor/EditorScene';
+import { Inspector } from './editor/Inspector';
+import { Palette } from './editor/Palette';
+import { useEditor } from './editor/store';
+import { useShortcuts } from './editor/useShortcuts';
+import { setCaption } from './model/ops';
 import { Stage, type CameraView } from './scene/Stage';
-import { coneSoccer } from './samples/coneSoccer';
 
 const VIEWS: { id: CameraView; name: string }[] = [
   { id: 'top', name: '위에서' },
@@ -11,15 +14,31 @@ const VIEWS: { id: CameraView; name: string }[] = [
 ];
 
 export function App() {
-  const activity = coneSoccer;
-  const scene = activity.scenes[0];
+  const activity = useEditor((s) => s.activity);
+  const sceneIdx = useEditor((s) => s.sceneIdx);
+  const tool = useEditor((s) => s.tool);
+  const canUndo = useEditor((s) => s.past.length > 0);
+  const canRedo = useEditor((s) => s.future.length > 0);
+  const undo = useEditor((s) => s.undo);
+  const redo = useEditor((s) => s.redo);
+  const commit = useEditor((s) => s.commit);
   const [view, setView] = useState<CameraView>('angle');
   const [viewNonce, setViewNonce] = useState(0);
+  useShortcuts();
+  const scene = activity.scenes[sceneIdx];
 
   return (
     <div className="app">
       <header className="topbar">
-        <h1>{activity.title}</h1>
+        <h1>{activity.title || '이름 없는 활동'}</h1>
+        <div className="history">
+          <button onClick={undo} disabled={!canUndo} title="되돌리기 (Ctrl+Z)">
+            되돌리기
+          </button>
+          <button onClick={redo} disabled={!canRedo} title="다시 하기 (Ctrl+Y)">
+            다시 하기
+          </button>
+        </div>
         <div className="views" role="group" aria-label="카메라">
           {VIEWS.map((v) => (
             <button
@@ -35,16 +54,24 @@ export function App() {
           ))}
         </div>
       </header>
-      <main className="stage">
-        <Stage field={activity.field} view={view} viewNonce={viewNonce}>
-          <Field field={activity.field} />
-          {activity.objects.map((obj) => {
-            const pose = scene.poses[obj.id];
-            return pose ? <BoardItem key={obj.id} activity={activity} obj={obj} pose={pose} /> : null;
-          })}
-        </Stage>
-        {scene.caption && <p className="caption">{scene.caption}</p>}
-      </main>
+      <div className="workspace">
+        <Palette />
+        <main className={`stage tool-${tool.t}`}>
+          <Stage field={activity.field} view={view} viewNonce={viewNonce}>
+            <EditorScene />
+          </Stage>
+          <div className="caption-edit">
+            <label htmlFor="scene-caption">장면 설명</label>
+            <input
+              id="scene-caption"
+              placeholder="이 장면에서 아이들이 할 일을 적어 주세요. 발표할 때 자막으로 크게 나옵니다."
+              value={scene.caption}
+              onChange={(e) => commit(setCaption(activity, sceneIdx, e.target.value), `caption-${scene.id}`)}
+            />
+          </div>
+        </main>
+        <Inspector />
+      </div>
     </div>
   );
 }

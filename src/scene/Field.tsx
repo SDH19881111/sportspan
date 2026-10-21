@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { Html } from '@react-three/drei';
+import type { ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { Field as FieldData, FieldKind } from '../model/activity';
 
@@ -38,7 +39,13 @@ function usePlankTexture(kind: FieldKind, width: number, depth: number) {
   }, [kind, width, depth]);
 }
 
-export function Field({ field }: { field: FieldData }) {
+interface FieldProps {
+  field: FieldData;
+  selectedId?: string;
+  onItemDown?: (kind: 'zone' | 'line', id: string, e: ThreeEvent<PointerEvent>) => void;
+}
+
+export function Field({ field, selectedId, onItemDown }: FieldProps) {
   const { kind, width, depth } = field;
   const colors = FLOOR[kind];
   const plank = usePlankTexture(kind, width, depth);
@@ -64,16 +71,31 @@ export function Field({ field }: { field: FieldData }) {
 
       {field.zones.map((zone, i) => (
         <group key={zone.id} position={[zone.x, 0.004 + i * 0.0005, zone.z]}>
-          <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+          <mesh
+            rotation={[-Math.PI / 2, 0, 0]}
+            receiveShadow
+            onPointerDown={onItemDown && ((e) => onItemDown('zone', zone.id, e))}
+          >
             <planeGeometry args={[zone.w, zone.d]} />
             <meshStandardMaterial color={zone.color} transparent opacity={0.78} roughness={1} />
           </mesh>
+          {selectedId === zone.id && <Outline w={zone.w} d={zone.d} />}
           {zone.label && <FloorLabel text={zone.label} />}
         </group>
       ))}
       {field.lines.map((line) => (
         <group key={line.id}>
-          <Strip {...line} y={0.008} width={0.08} />
+          <Strip {...line} y={0.008} width={0.08} color={selectedId === line.id ? '#2563eb' : line.color} />
+          {onItemDown && (
+            <Strip
+              {...line}
+              y={0.009}
+              width={0.45}
+              color="#000"
+              hitOnly
+              onPointerDown={(e) => onItemDown('line', line.id, e)}
+            />
+          )}
           {line.label && (
             <group position={[(line.x1 + line.x2) / 2, 0.01, (line.z1 + line.z2) / 2]}>
               <FloorLabel text={line.label} />
@@ -93,18 +115,41 @@ interface StripProps {
   color: string;
   y: number;
   width?: number;
+  hitOnly?: boolean; // 보이지 않고 클릭만 받는 넓은 띠
+  onPointerDown?: (e: ThreeEvent<PointerEvent>) => void;
 }
 
-export function Strip({ x1, z1, x2, z2, color, y, width = 0.06 }: StripProps) {
+export function Strip({ x1, z1, x2, z2, color, y, width = 0.06, hitOnly, onPointerDown }: StripProps) {
   const dx = x2 - x1;
   const dz = z2 - z1;
   const len = Math.hypot(dx, dz);
   const angle = Math.atan2(dz, dx);
   return (
-    <mesh position={[(x1 + x2) / 2, y, (z1 + z2) / 2]} rotation={[-Math.PI / 2, 0, -angle]}>
+    <mesh
+      position={[(x1 + x2) / 2, y, (z1 + z2) / 2]}
+      rotation={[-Math.PI / 2, 0, -angle]}
+      onPointerDown={onPointerDown}
+    >
       <planeGeometry args={[len + width, width]} />
-      <meshBasicMaterial color={color} />
+      {hitOnly ? (
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      ) : (
+        <meshBasicMaterial color={color} />
+      )}
     </mesh>
+  );
+}
+
+function Outline({ w, d }: { w: number; d: number }) {
+  const c = '#2563eb';
+  const y = 0.006;
+  return (
+    <group>
+      <Strip x1={-w / 2} z1={-d / 2} x2={w / 2} z2={-d / 2} color={c} y={y} width={0.1} />
+      <Strip x1={-w / 2} z1={d / 2} x2={w / 2} z2={d / 2} color={c} y={y} width={0.1} />
+      <Strip x1={-w / 2} z1={-d / 2} x2={-w / 2} z2={d / 2} color={c} y={y} width={0.1} />
+      <Strip x1={w / 2} z1={-d / 2} x2={w / 2} z2={d / 2} color={c} y={y} width={0.1} />
+    </group>
   );
 }
 

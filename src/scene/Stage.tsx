@@ -53,7 +53,8 @@ interface Props {
   controlsEnabled?: boolean;
 }
 
-export function Stage({ field, view, viewNonce, children, onPointerMissed, controlsEnabled = true }: Props) {
+// controlsEnabled를 주지 않으면 편집기(Interaction)가 카메라 조작을 직접 켜고 끈다.
+export function Stage({ field, view, viewNonce, children, onPointerMissed, controlsEnabled }: Props) {
   const start = cameraSpot(view, field);
   const span = Math.max(field.width, field.depth);
   return (
@@ -79,7 +80,7 @@ export function Stage({ field, view, viewNonce, children, onPointerMissed, contr
       />
       <OrbitControls
         makeDefault
-        enabled={controlsEnabled}
+        enabled={controlsEnabled ?? true}
         maxPolarAngle={Math.PI / 2.15}
         minDistance={2}
         maxDistance={span * 2.5}

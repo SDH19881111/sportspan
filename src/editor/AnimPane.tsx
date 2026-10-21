@@ -3,7 +3,7 @@ import type { Activity, Anim, AnimStart, BoardObject, MoveStyle } from '../model
 import { colorOf } from '../model/activity';
 import { CATALOG_BY_KIND } from '../model/catalog';
 import { moveAnim, removeItems, updateAnim } from '../model/ops';
-import { buildTimeline, defaultStyle, type TimedAnim, type Timeline } from '../motion/timeline';
+import { buildTimeline, defaultStyle, SPEEDS, type TimedAnim, type Timeline } from '../motion/timeline';
 import { useEditor } from './store';
 
 // 애니메이션 창(PPT의 애니메이션 창처럼): 순서, 시작 방식, 지연, 시간 막대.
@@ -49,6 +49,8 @@ export function AnimPane() {
   const setSel = useEditor((s) => s.setSel);
   const play = useEditor((s) => s.play);
   const stop = useEditor((s) => s.stop);
+  const playRate = useEditor((s) => s.playRate);
+  const setPlayRate = useEditor((s) => s.setPlayRate);
   const scene = activity.scenes[sceneIdx];
   const timeline = useMemo(() => buildTimeline(activity, sceneIdx), [activity, sceneIdx]);
   const byId = new Map(timeline.items.map((it) => [it.anim.id, it]));
@@ -59,15 +61,30 @@ export function AnimPane() {
     <div className="anim-pane">
       <div className="anim-head">
         <h2>장면 {sceneIdx + 1} 애니메이션</h2>
-        {playing ? (
-          <button className="play on" onClick={stop}>
-            ■ 멈추기
-          </button>
-        ) : (
-          <button className="play" disabled={!scene.anims.length} onClick={() => play(sceneIdx, false)} title="Space">
-            ▶ 재생
-          </button>
-        )}
+        <div className="anim-head-tools">
+          <select
+            id="play-rate"
+            aria-label="재생 빠르기"
+            title="재생 빠르기(모든 애니메이션)"
+            value={playRate}
+            onChange={(e) => setPlayRate(parseFloat(e.target.value))}
+          >
+            {SPEEDS.map((v) => (
+              <option key={v} value={v}>
+                {v}배
+              </option>
+            ))}
+          </select>
+          {playing ? (
+            <button className="play on" onClick={stop}>
+              ■ 멈추기
+            </button>
+          ) : (
+            <button className="play" disabled={!scene.anims.length} onClick={() => play(sceneIdx, false)} title="Space">
+              ▶ 재생
+            </button>
+          )}
+        </div>
       </div>
       {scene.anims.length === 0 ? (
         <p className="note">
@@ -102,6 +119,7 @@ export function AnimPane() {
                     <span className="anim-name">
                       {objectName(activity, obj)} · {KIND_NAMES[an.kind]}
                       {an.kind === 'move' && ` (${STYLE_NAMES[an.style ?? defaultStyle(obj)]})`}
+                      {an.speed && an.speed !== 1 ? ` ×${an.speed}` : ''}
                     </span>
                     {it && (
                       <span className="anim-bar-track" aria-hidden>
@@ -214,6 +232,14 @@ function AnimDetail(props: {
           <p className="note">도착점은 화면에서 번호가 붙은 원을 끌어 옮깁니다.</p>
         </>
       )}
+      <span className="field-label">빠르기</span>
+      <div className="seg small">
+        {SPEEDS.map((v) => (
+          <button key={v} className={(anim.speed ?? 1) === v ? 'on' : ''} onClick={() => set({ speed: v === 1 ? undefined : v })}>
+            {v}배
+          </button>
+        ))}
+      </div>
       {item && (
         <p className="note">
           {item.start.toFixed(1)}초에 시작해서 {item.duration.toFixed(1)}초 동안

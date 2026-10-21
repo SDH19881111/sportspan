@@ -486,6 +486,7 @@ export function updateAnim(a: Activity, sceneIdx: number, id: string, patch: Par
   const an = next.scenes[sceneIdx].anims.find((v) => v.id === id);
   if (an) {
     Object.assign(an, patch);
+    if ('speed' in patch && patch.speed === undefined) delete an.speed;
     if (patch.to) {
       const [x, z] = clampToField(a, patch.to.x, patch.to.z);
       an.to = { x, z };
@@ -537,5 +538,92 @@ export function addMoves(
     next = res.activity;
     made.push(res.id);
   });
+  return { activity: next, ids: made };
+}
+
+// ── 복사·붙여넣기 ───────────────────────────────────────
+
+/** 복사해 둔 것(다른 설명판에 붙여 넣을 수도 있게 팀 정보도 함께) */
+export interface Clip {
+  objects: { obj: BoardObject; pose: Pose }[];
+  zones: FieldZone[];
+  lines: FieldLine[];
+  teams: Team[];
+}
+
+export function copyItems(a: Activity, sceneIdx: number, ids: string[]): Clip {
+  const scene = a.scenes[sceneIdx];
+  const objects = a.objects
+    .filter((o) => ids.includes(o.id) && scene.poses[o.id])
+    .map((o) => ({ obj: structuredClone(o), pose: structuredClone(scene.poses[o.id]) }));
+  return {
+    objects,
+    zones: structuredClone(a.field.zones.filter((z) => ids.includes(z.id))),
+    lines: structuredClone(a.field.lines.filter((l) => ids.includes(l.id))),
+    teams: structuredClone(a.teams.filter((t) => objects.some((x) => x.obj.teamId === t.id))),
+  };
+}
+
+export function clipIsEmpty(c: Clip | null): boolean {
+  return !c || c.objects.length + c.zones.length + c.lines.length === 0;
+}
+
+/**
+ * 붙여 넣기: 새 id, 고정은 풀고, 묶음은 새 묶음으로. 물건은 모든 장면에 (지금 장면 자리 + offset)으로 들어간다.
+ * 다른 설명판에서 가져온 학생은 같은 id나 같은 색의 팀을 찾고, 없으면 팀 없이 그 색으로.
+ */
+export function pasteItems(a: Activity, clip: Clip, offset: number): { activity: Activity; ids: string[] } {
+  const next = clone(a);
+  const made: string[] = [];
+  const groups = new Map<string, string>();
+  const regroup = (g?: string) => {
+    if (!g) return undefined;
+    if (!groups.has(g)) groups.set(g, newId('g'));
+    return groups.get(g);
+  };
+
+  for (const { obj, pose } of clip.objects) {
+    const id = newId('o');
+    const copy: BoardObject = { ...obj, id, groupId: regroup(obj.groupId) };
+    delete copy.locked;
+    if (!copy.groupId) delete copy.groupId;
+    if (copy.teamId && !next.teams.some((t) => t.id === copy.teamId)) {
+      const color = clip.teams.find((t) => t.id === copy.teamId)?.color;
+      const same = next.teams.find((t) => t.color === color);
+      if (same) copy.teamId = same.id;
+      else {
+        delete copy.teamId;
+        copy.color = color;
+      }
+    }
+    next.objects.push(copy);
+    const [x, z] = clampToField(a, pose.x + offset, pose.z + offset);
+    for (const s of next.scenes) s.poses[id] = { ...pose, x, z };
+    made.push(id);
+  }
+  for (const zn of clip.zones) {
+    const id = newId('z');
+    const copy: FieldZone = { ...zn, id, x: round(zn.x + offset), z: round(zn.z + offset), groupId: regroup(zn.groupId) };
+    delete copy.locked;
+    if (!copy.groupId) delete copy.groupId;
+    next.field.zones.push(copy);
+    made.push(id);
+  }
+  for (const ln of clip.lines) {
+    const id = newId('l');
+    const copy: FieldLine = {
+      ...ln,
+      id,
+      x1: round(ln.x1 + offset),
+      z1: round(ln.z1 + offset),
+      x2: round(ln.x2 + offset),
+      z2: round(ln.z2 + offset),
+      groupId: regroup(ln.groupId),
+    };
+    delete copy.locked;
+    if (!copy.groupId) delete copy.groupId;
+    next.field.lines.push(copy);
+    made.push(id);
+  }
   return { activity: next, ids: made };
 }

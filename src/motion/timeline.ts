@@ -168,6 +168,22 @@ function buildFall(obj: BoardObject, from: ItemState, yaw: number): Built {
   };
 }
 
+export const SPEEDS = [0.25, 0.5, 0.75, 1, 1.5, 2];
+
+/**
+ * 빠르기 배율: 움직임 모양(달리기 곡선·포물선)은 그대로 두고 시간만 늘이거나 줄인다.
+ * 0.5배면 같은 길을 두 배 시간 동안(느린 화면처럼) 간다.
+ */
+function withSpeed(b: Built, speed = 1): Built {
+  if (!(speed > 0) || speed === 1) return b;
+  return {
+    ...b,
+    duration: b.duration / speed,
+    at: (t) => b.at(t * speed),
+    path: b.path && ((t) => b.path!(t * speed)),
+  };
+}
+
 /** 공이 (x,z)에 가장 가까워지는 순간(머리 위로 지나가면 안 맞는다) */
 function closestHit(ball: TimedAnim, x: number, z: number) {
   let best = { t: 0, d: Infinity };
@@ -236,6 +252,7 @@ export function buildTimeline(a: Activity, sceneIdx: number): Timeline {
       const end = { ...from, hidden: !visible };
       built = { duration: 0.3, end, at: (t) => ({ ...from, hidden: visible ? false : t < 0.3 ? false : true }) };
     }
+    built = withSpeed(built, anim.speed);
 
     const item: TimedAnim = { anim, index, group, start, from, ...built };
     items.push(item);

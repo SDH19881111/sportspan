@@ -35,6 +35,31 @@ export interface Playing {
 
 /** 키보드 Delete가 무엇을 지울지: 화면에서 고른 것 / 장면 띠에서 고른 장면 */
 export type Focus = 'canvas' | 'scenes';
+
+export interface GridSettings {
+  show: boolean; // 바닥에 격자 그리기
+  snap: boolean; // 자석: 놓고 옮기고 그릴 때 격자 칸에 맞추기
+  size: number; // 칸 크기(m)
+}
+
+/** 끌어서 고르기 사각형(화면 좌표) */
+export interface Marquee {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
+const GRID_KEY = 'peboard.grid';
+function loadGrid(): GridSettings {
+  try {
+    const g = JSON.parse(localStorage.getItem(GRID_KEY) ?? 'null');
+    if (g && typeof g.size === 'number') return { show: !!g.show, snap: !!g.snap, size: g.size };
+  } catch {
+    /* 저장소를 못 쓰면 기본값 */
+  }
+  return { show: true, snap: true, size: 0.5 };
+}
 export type RightTab = 'props' | 'anims';
 
 const HISTORY_LIMIT = 100;
@@ -59,6 +84,13 @@ interface EditorState {
   setFocus: (f: Focus) => void;
   rightTab: RightTab;
   setRightTab: (t: RightTab) => void;
+  grid: GridSettings;
+  setGrid: (patch: Partial<GridSettings>) => void;
+  marquee: Marquee | null;
+  setMarquee: (m: Marquee | null) => void;
+  /** 재생 빠르기(0.5배 ~ 2배) */
+  playRate: number;
+  setPlayRate: (r: number) => void;
 
   /** 바로 기록하는 변경(버튼·키 한 번). mergeKey가 같은 연속 입력(글자 치기)은 한 번으로 묶는다. */
   commit: (next: Activity, mergeKey?: string) => void;
@@ -107,6 +139,20 @@ export const useEditor = create<EditorState>((set, get) => ({
   setFocus: (focus) => set({ focus }),
   rightTab: 'props',
   setRightTab: (rightTab) => set({ rightTab }),
+  grid: typeof localStorage === 'undefined' ? { show: true, snap: true, size: 0.5 } : loadGrid(),
+  setGrid: (patch) => {
+    const grid = { ...get().grid, ...patch };
+    set({ grid });
+    try {
+      localStorage.setItem(GRID_KEY, JSON.stringify(grid));
+    } catch {
+      /* 무시 */
+    }
+  },
+  marquee: null,
+  setMarquee: (marquee) => set({ marquee }),
+  playRate: 1,
+  setPlayRate: (playRate) => set({ playRate }),
 
   lastMerge: null,
   commit: (next, mergeKey) => {

@@ -94,6 +94,7 @@ export interface Anim {
   delay: number; // 초
   to?: { x: number; z: number }; // move만
   style?: MoveStyle; // move만
+  speed?: number; // 빠르기 배율(1 = 보통, 0.5 = 절반 빠르기로 느리게). 없으면 1
 }
 
 export interface Bubble {

@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
@@ -55,7 +55,8 @@ interface Props {
 
 // controlsEnabled를 주지 않으면 편집기(Interaction)가 카메라 조작을 직접 켜고 끈다.
 export function Stage({ field, view, viewNonce, children, onPointerMissed, controlsEnabled }: Props) {
-  const start = cameraSpot(view, field);
+  // 처음 한 번만: 다시 그릴 때마다 target을 넘기면 옮겨 둔 시점이 가운데로 되돌아간다
+  const [start] = useState(() => cameraSpot(view, field));
   const span = Math.max(field.width, field.depth);
   return (
     <Canvas
@@ -82,6 +83,7 @@ export function Stage({ field, view, viewNonce, children, onPointerMissed, contr
         makeDefault
         enabled={controlsEnabled ?? true}
         maxPolarAngle={Math.PI / 2.15}
+        screenSpacePanning={false}
         minDistance={2}
         maxDistance={span * 2.5}
         target={start.target}

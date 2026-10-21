@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
+import * as THREE from 'three';
 import type { Activity } from '../model/activity';
 import { colorOf } from '../model/activity';
 import { CATALOG_BY_KIND } from '../model/catalog';
@@ -8,7 +9,7 @@ import { buildTimeline, type Timeline } from '../motion/timeline';
 import { BoardItem } from '../scene/BoardItem';
 import { Field } from '../scene/Field';
 import { AnimBadge, ArrowMark, BubbleTag, HighlightRing, PathMark } from '../scene/Marks';
-import { Interaction, startDrag } from './Interaction';
+import { gridSnap, Interaction, snapPoint, startDrag } from './Interaction';
 import { useEditor } from './store';
 
 /** 편집 화면은 애니메이션이 하나도 일어나기 전(장면 시작) 모습을 보여 준다 */
@@ -32,6 +33,7 @@ export function EditorScene() {
     <>
       <Interaction />
       <Field field={activity.field} selectedIds={sel} onItemDown={onItemDown} />
+      <GridOverlay activity={activity} />
       <Items activity={activity} timeline={timeline} t={BEFORE_START} sel={sel} interactive />
       <AnimMarks activity={activity} timeline={timeline} sel={sel} />
       {scene.highlights.map((id) => {
@@ -50,6 +52,46 @@ export function EditorScene() {
       )}
       {draft && (draft.t === 'zone' || draft.t === 'line') && <DraftShape {...draft} t={draft.t} />}
     </>
+  );
+}
+
+/** 바닥 격자: 칸마다 가는 선, 5m마다 조금 진한 선 */
+function GridOverlay({ activity }: { activity: Activity }) {
+  const grid = useEditor((s) => s.grid);
+  const geom = useMemo(() => {
+    if (!grid.show) return null;
+    const hx = activity.field.width / 2 + 3;
+    const hz = activity.field.depth / 2 + 3;
+    const minor: number[] = [];
+    const major: number[] = [];
+    const n = (h: number) => Math.floor(h / grid.size);
+    for (let i = -n(hx); i <= n(hx); i++) {
+      const x = i * grid.size;
+      const arr = Math.abs(x % 5) < 1e-6 ? major : minor;
+      arr.push(x, 0, -hz, x, 0, hz);
+    }
+    for (let i = -n(hz); i <= n(hz); i++) {
+      const z = i * grid.size;
+      const arr = Math.abs(z % 5) < 1e-6 ? major : minor;
+      arr.push(-hx, 0, z, hx, 0, z);
+    }
+    const make = (pts: number[]) => {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+      return g;
+    };
+    return { minor: make(minor), major: make(major) };
+  }, [grid.show, grid.size, activity.field.width, activity.field.depth]);
+  if (!geom) return null;
+  return (
+    <group position={[0, 0.006, 0]}>
+      <lineSegments geometry={geom.minor}>
+        <lineBasicMaterial color="#ffffff" transparent opacity={0.18} />
+      </lineSegments>
+      <lineSegments geometry={geom.major}>
+        <lineBasicMaterial color="#ffffff" transparent opacity={0.4} />
+      </lineSegments>
+    </group>
   );
 }
 
@@ -172,7 +214,7 @@ function PlaybackScene({ activity }: { activity: Activity }) {
 
   useFrame(({ clock }) => {
     if (start.current === null) start.current = clock.elapsedTime;
-    const now = clock.elapsedTime - start.current;
+    const now = (clock.elapsedTime - start.current) * useEditor.getState().playRate;
     if (now < timeline.duration + HOLD) {
       setT(Math.min(now, timeline.duration));
       return;
@@ -244,11 +286,16 @@ function onItemDown(id: string, e: ThreeEvent<PointerEvent>) {
     if (!from) return;
     startDrag(
       e.nativeEvent,
-      (p) => useEditor.getState().setDraft({ t: 'path', x1: from.x, z1: from.z, x2: p[0], z2: p[1] }),
-      (moved, p) => {
+      (raw) => {
+        const p = snapPoint(raw);
+        useEditor.getState().setDraft({ t: 'path', x1: from.x, z1: from.z, x2: p[0], z2: p[1] });
+      },
+      (moved, raw) => {
         const now = useEditor.getState();
         now.setDraft(null);
-        if (!moved || !p || Math.hypot(p[0] - from.x, p[1] - from.z) < 0.2) return;
+        if (!moved || !raw) return;
+        const p = snapPoint(raw);
+        if (Math.hypot(p[0] - from.x, p[1] - from.z) < 0.2) return;
         const res = addMoves(now.activity, now.sceneIdx, [id], { x: p[0], z: p[1] });
         now.commit(res.activity);
         now.setSel(res.ids);
@@ -275,12 +322,20 @@ function onItemDown(id: string, e: ThreeEvent<PointerEvent>) {
 
   const moving = ids.filter((v) => !isLocked(st.activity, v));
   const base = st.activity;
+  const anchor = anchorOf(base, st.sceneIdx, id);
   st.beginGesture();
   startDrag(
     native,
     (p, s) => {
       const now = useEditor.getState();
-      now.preview(moveItems(base, now.sceneIdx, moving, p[0] - s[0], p[1] - s[1]));
+      // 자석: 누른 물건(구역은 왼쪽 위 모서리)이 격자 칸에 오도록 옮기는 양을 맞춘다
+      let dx = p[0] - s[0];
+      let dz = p[1] - s[1];
+      if (anchor) {
+        dx = gridSnap(anchor[0] + dx) - anchor[0];
+        dz = gridSnap(anchor[1] + dz) - anchor[1];
+      }
+      now.preview(moveItems(base, now.sceneIdx, moving, dx, dz));
     },
     (moved) => {
       useEditor.getState().endGesture();
@@ -288,6 +343,17 @@ function onItemDown(id: string, e: ThreeEvent<PointerEvent>) {
       if (!moved && !additive && already && cur.length > clicked.length) useEditor.getState().setSel(clicked);
     },
   );
+}
+
+/** 자석으로 맞출 기준점: 물건은 서 있는 자리, 구역은 왼쪽 위 모서리, 선·화살표는 시작점 */
+function anchorOf(a: Activity, sceneIdx: number, id: string): [number, number] | null {
+  const p = a.scenes[sceneIdx].poses[id];
+  if (p && a.objects.some((o) => o.id === id)) return [p.x, p.z];
+  const z = a.field.zones.find((v) => v.id === id);
+  if (z) return [z.x - z.w / 2, z.z - z.d / 2];
+  const l = a.field.lines.find((v) => v.id === id) ?? a.scenes[sceneIdx].arrows.find((v) => v.id === id);
+  if (l) return [l.x1, l.z1];
+  return null;
 }
 
 /** 도착점 원을 끌어 이동 도착점을 옮긴다. */
@@ -304,7 +370,8 @@ function onPathEndDown(animId: string, e: ThreeEvent<PointerEvent>) {
     e.nativeEvent,
     (p) => {
       const now = useEditor.getState();
-      now.preview(updateAnim(base, now.sceneIdx, animId, { to: { x: p[0], z: p[1] } }));
+      const [x, z] = snapPoint(p);
+      now.preview(updateAnim(base, now.sceneIdx, animId, { to: { x, z } }));
     },
     () => useEditor.getState().endGesture(),
   );

@@ -63,6 +63,23 @@ function useAutosave() {
   return { state, flush };
 }
 
+/** Ctrl+끌기로 고를 때의 사각형 */
+function MarqueeBox() {
+  const m = useEditor((s) => s.marquee);
+  if (!m) return null;
+  return (
+    <div
+      className="marquee"
+      style={{
+        left: Math.min(m.x1, m.x2),
+        top: Math.min(m.y1, m.y2),
+        width: Math.abs(m.x2 - m.x1),
+        height: Math.abs(m.y2 - m.y1),
+      }}
+    />
+  );
+}
+
 export function App() {
   const activity = useEditor((s) => s.activity);
   const sceneIdx = useEditor((s) => s.sceneIdx);
@@ -142,6 +159,7 @@ export function App() {
         </div>
         <Inspector />
       </div>
+      <MarqueeBox />
       {libOpen && <Library onClose={() => setLibOpen(false)} flush={save.flush} />}
     </div>
   );

@@ -1056,3 +1056,32 @@ textarea:focus-visible {
   border-color: #ffd23f;
   box-shadow: 0 0 0 2px rgba(255, 210, 63, 0.35);
 }
+
+.marquee {
+  position: fixed;
+  z-index: 50;
+  border: 1.5px solid var(--accent);
+  background: rgba(31, 111, 235, 0.12);
+  pointer-events: none;
+}
+
+.seg.small button {
+  padding: 5px 4px;
+  font-size: 12px;
+}
+
+.anim-head-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.anim-head-tools select {
+  font: inherit;
+  font-size: 13px;
+  padding: 5px 4px;
+  border: 1px solid var(--panel-line);
+  border-radius: 7px;
+  background: #fff;
+  color: var(--ink);
+}

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { Activity, ObjectKind } from '../model/activity';
-import { itemKind } from '../model/ops';
+import { itemKind, type MoveMode } from '../model/ops';
 import { coneSoccer } from '../samples/coneSoccer';
 
 export type Tool =
@@ -10,8 +10,11 @@ export type Tool =
   | { t: 'line' }
   | { t: 'arrow' }
   | { t: 'bubble' }
-  /** 이동 경로: ids가 있으면 바닥을 누른 곳이 도착점, 없으면 물건을 눌러 끌어 놓는다 */
-  | { t: 'path'; ids?: string[] };
+  /**
+   * 이동 경로: ids가 있으면 바닥을 누른 곳이 도착점, 없으면 물건을 눌러 끌어 놓는다.
+   * 여러 개면 mode로 모이기(gather)·대형 유지(keep)를 고른다.
+   */
+  | { t: 'path'; ids?: string[]; mode?: MoveMode };
 
 /** 고른 것들의 id(물건·구역·선·화살표·말풍선이 섞일 수 있다) */
 export type Selection = string[];

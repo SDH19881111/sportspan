@@ -12,6 +12,7 @@ import type {
 } from './activity';
 import { newId } from './activity';
 import { buildTimeline } from '../motion/timeline';
+import { CATALOG_BY_KIND } from './catalog';
 
 function clone(a: Activity): Activity {
   return structuredClone(a);
@@ -512,7 +513,14 @@ export function moveAnim(a: Activity, sceneIdx: number, id: string, dir: -1 | 1)
 }
 
 /**
- * 고른 물건들에 이동을 한꺼번에 붙인다. 첫 물건이 dest로 가고 나머지는 같은 간격을 유지한다.
+ * 여러 물건을 이동시키는 방법
+ *  keep: 첫 물건이 dest로 가고 나머지는 같은 간격(대형)을 유지한다.
+ *  gather: 모두 dest로 모인다. dest 자리는 비우고 그 둘레에 한 칸(cell)씩 띄워 둥글게 선다.
+ */
+export type MoveMode = 'keep' | 'gather';
+
+/**
+ * 고른 물건들에 이동을 한꺼번에 붙인다. 둘째부터는 '앞과 함께'라 모두 동시에 움직인다.
  * 출발점은 각 물건의 '지금까지 애니메이션이 끝난 자리'라서 이동을 이어 붙일 수 있다.
  */
 export function addMoves(
@@ -521,26 +529,69 @@ export function addMoves(
   ids: string[],
   dest: { x: number; z: number },
   start: Anim['start'] = 'click',
+  opts: { mode?: MoveMode; cell?: number } = {},
 ): { activity: Activity; ids: string[] } {
   const ends = buildTimeline(a, sceneIdx).endPoses;
   const lead = ends[ids[0]];
   if (!lead) return { activity: a, ids: [] };
+  const live = ids.filter((id) => ends[id]);
+  const gather = opts.mode === 'gather' && live.length > 1 ? gatherSpots(a, live, ends, dest, opts.cell ?? 0.5) : null;
   let next = a;
   const made: string[] = [];
-  ids.forEach((id, i) => {
+  live.forEach((id, i) => {
     const p = ends[id];
-    if (!p) return;
+    const to = gather ? gather[id] : { x: dest.x + (p.x - lead.x), z: dest.z + (p.z - lead.z) };
     const res = addAnim(next, sceneIdx, {
       objId: id,
       kind: 'move',
       start: i === 0 ? start : 'with',
       delay: 0,
-      to: { x: dest.x + (p.x - lead.x), z: dest.z + (p.z - lead.z) },
+      to,
     });
     next = res.activity;
     made.push(res.id);
   });
   return { activity: next, ids: made };
+}
+
+/**
+ * 모이기 자리: dest를 가운데 두고 둥글게. 가운데에서 한 칸, 옆 사람과도 몸 사이 한 칸 띈다.
+ * 각자 오던 쪽 자리에 서도록 출발 방향 순서대로 자리를 나눠 길이 서로 엇갈리지 않게 한다.
+ */
+export function gatherSpots(
+  a: Activity,
+  ids: string[],
+  from: Record<string, { x: number; z: number }>,
+  dest: { x: number; z: number },
+  cell: number,
+): Record<string, { x: number; z: number }> {
+  const n = ids.length;
+  const byId = new Map(a.objects.map((o) => [o.id, o]));
+  const rad = Math.max(...ids.map((id) => CATALOG_BY_KIND[byId.get(id)?.kind ?? 'kid'].radius));
+  const r = Math.max(cell + rad, (2 * rad + cell) / (2 * Math.sin(Math.PI / n)));
+  const step = (2 * Math.PI) / n;
+  const angleOf = (id: string) => {
+    const p = from[id];
+    const dx = p.x - dest.x;
+    const dz = p.z - dest.z;
+    return Math.hypot(dx, dz) < 1e-6 ? 0 : Math.atan2(dz, dx);
+  };
+  const sorted = ids.map((id) => ({ id, ang: angleOf(id) })).sort((u, v) => u.ang - v.ang);
+  // 자리 고리를 돌려 각자 출발 방향과 가장 가깝게(각도 차이의 원형 평균)
+  let sx = 0;
+  let sz = 0;
+  sorted.forEach((o, k) => {
+    sx += Math.cos(o.ang - k * step);
+    sz += Math.sin(o.ang - k * step);
+  });
+  const base = Math.atan2(sz, sx);
+  const out: Record<string, { x: number; z: number }> = {};
+  sorted.forEach((o, k) => {
+    const ang = base + k * step;
+    const [x, z] = clampToField(a, dest.x + r * Math.cos(ang), dest.z + r * Math.sin(ang));
+    out[o.id] = { x, z };
+  });
+  return out;
 }
 
 // ── 복사·붙여넣기 ───────────────────────────────────────

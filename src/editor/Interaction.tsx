@@ -158,7 +158,10 @@ export function Interaction() {
       const raw = floorApi.floorAt(native.clientX, native.clientY);
       if (!raw) return;
       const p = snapPoint(raw);
-      const res = addMoves(st.activity, st.sceneIdx, t.ids, { x: p[0], z: p[1] });
+      const res = addMoves(st.activity, st.sceneIdx, t.ids, { x: p[0], z: p[1] }, 'click', {
+        mode: t.mode,
+        cell: st.grid.size,
+      });
       st.commit(res.activity);
       st.setTool({ t: 'select' });
       st.setSel(res.ids);

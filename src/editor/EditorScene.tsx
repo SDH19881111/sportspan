@@ -248,6 +248,7 @@ function SceneMarks(props: {
                 ? (e) => {
                     e.stopPropagation();
                     useEditor.getState().setSel([b.id]);
+                    useEditor.getState().setRightTab('props');
                   }
                 : undefined
             }
@@ -338,6 +339,7 @@ function onItemDown(id: string, e: ThreeEvent<PointerEvent>) {
     st.commit(activity);
     st.setSel([bid]);
     st.setTool({ t: 'select' });
+    st.setRightTab('props'); // 글자 칸이 있는 속성 탭으로(애니메이션 탭에 있으면 쓸 곳이 안 보인다)
     return;
   }
 

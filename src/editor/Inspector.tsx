@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import type { Activity, AnimKind, AnimStart, FieldKind } from '../model/activity';
 import { FIELD_SIZES } from '../model/activity';
 import { CATALOG_BY_KIND } from '../model/catalog';
@@ -73,7 +74,7 @@ function PropsContent({ sel, only, single }: { sel: string[]; only: (k: ItemKind
       {single && only('zone') && <ZonePanel id={sel[0]} />}
       {single && only('line') && <LinePanel id={sel[0]} />}
       {single && only('arrow') && <MarkPanel id={sel[0]} kind="arrow" />}
-      {single && only('bubble') && <MarkPanel id={sel[0]} kind="bubble" />}
+      {single && only('bubble') && <MarkPanel key={sel[0]} id={sel[0]} kind="bubble" />}
       {sel.length > 1 && !only('obj') && <h2>{sel.length}개 고름</h2>}
       {sel.length > 0 && !only('arrow') && !only('bubble') && <ArrangePanel ids={sel} />}
     </>
@@ -343,12 +344,29 @@ function ObjectPanel({ ids }: { ids: string[] }) {
       </div>
       <h3>애니메이션 추가</h3>
       <div className="anim-add">
-        <button
-          title="바닥을 누르면 그곳까지 움직입니다. 여러 명을 골랐으면 간격을 유지한 채 함께 움직입니다"
-          onClick={() => useEditor.getState().setTool({ t: 'path', ids })}
-        >
-          이동
-        </button>
+        {ids.length > 1 ? (
+          <>
+            <button
+              title="바닥을 누른 곳으로 모두 함께 모입니다. 그 자리는 비우고 한 칸씩 띄워 둥글게 섭니다"
+              onClick={() => useEditor.getState().setTool({ t: 'path', ids, mode: 'gather' })}
+            >
+              모여 이동
+            </button>
+            <button
+              title="지금 간격(대형)을 그대로 유지한 채 함께 움직입니다. 처음 고른 것이 누른 곳으로 갑니다"
+              onClick={() => useEditor.getState().setTool({ t: 'path', ids, mode: 'keep' })}
+            >
+              대형 유지
+            </button>
+          </>
+        ) : (
+          <button
+            title="바닥을 누르면 그곳까지 움직입니다"
+            onClick={() => useEditor.getState().setTool({ t: 'path', ids })}
+          >
+            이동
+          </button>
+        )}
         {canFall && (
           <button
             title="공이 지나가며 닿을 때 쓰러집니다(공 이동이 없으면 앞 애니메이션과 함께)"
@@ -512,6 +530,12 @@ function MarkPanel({ id, kind }: { id: string; kind: 'arrow' | 'bubble' }) {
   const hasShow = useEditor((s) => s.activity.scenes[s.sceneIdx].anims.some((an) => an.markId === id));
   const setSel = useEditor((s) => s.setSel);
   const run = useCommit();
+  // 말풍선을 고르면 바로 글자를 칠 수 있게. 3D 화면을 누른 직후에는 브라우저가 포커스를 가져가므로 한 박자 늦춘다.
+  const text = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const t = window.setTimeout(() => text.current?.focus(), 30);
+    return () => window.clearTimeout(t);
+  }, [id]);
   return (
     <>
       <h2>{kind === 'arrow' ? '화살표' : '말풍선'}</h2>
@@ -520,8 +544,8 @@ function MarkPanel({ id, kind }: { id: string; kind: 'arrow' | 'bubble' }) {
           <span>내용</span>
           <textarea
             id="bubble-text"
+            ref={text}
             rows={3}
-            autoFocus
             placeholder="예: 가위바위보!"
             value={bubble.text}
             onChange={(e) => run((v) => updateBubble(v, sceneIdx, id, e.target.value), `b-${id}`)}

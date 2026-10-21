@@ -42,8 +42,8 @@ describe('실행 취소', () => {
     const st = useEditor.getState;
     const { activity, id } = addObject(st().activity, { kind: 'cone' }, { x: 0, z: 0, rot: 0 });
     st().commit(activity);
-    st().setSel({ t: 'obj', ids: [id] });
+    st().setSel([id]);
     st().undo();
-    expect(st().sel).toBeNull();
+    expect(st().sel).toEqual([]);
   });
 });

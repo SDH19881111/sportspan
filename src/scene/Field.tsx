@@ -41,11 +41,11 @@ function usePlankTexture(kind: FieldKind, width: number, depth: number) {
 
 interface FieldProps {
   field: FieldData;
-  selectedId?: string;
-  onItemDown?: (kind: 'zone' | 'line', id: string, e: ThreeEvent<PointerEvent>) => void;
+  selectedIds?: string[];
+  onItemDown?: (id: string, e: ThreeEvent<PointerEvent>) => void;
 }
 
-export function Field({ field, selectedId, onItemDown }: FieldProps) {
+export function Field({ field, selectedIds = [], onItemDown }: FieldProps) {
   const { kind, width, depth } = field;
   const colors = FLOOR[kind];
   const plank = usePlankTexture(kind, width, depth);
@@ -74,18 +74,18 @@ export function Field({ field, selectedId, onItemDown }: FieldProps) {
           <mesh
             rotation={[-Math.PI / 2, 0, 0]}
             receiveShadow
-            onPointerDown={onItemDown && ((e) => onItemDown('zone', zone.id, e))}
+            onPointerDown={onItemDown && ((e) => onItemDown(zone.id, e))}
           >
             <planeGeometry args={[zone.w, zone.d]} />
             <meshStandardMaterial color={zone.color} transparent opacity={0.78} roughness={1} />
           </mesh>
-          {selectedId === zone.id && <Outline w={zone.w} d={zone.d} />}
+          {selectedIds.includes(zone.id) && <Outline w={zone.w} d={zone.d} />}
           {zone.label && <FloorLabel text={zone.label} />}
         </group>
       ))}
       {field.lines.map((line) => (
         <group key={line.id}>
-          <Strip {...line} y={0.008} width={0.08} color={selectedId === line.id ? '#2563eb' : line.color} />
+          <Strip {...line} y={0.008} width={0.08} color={selectedIds.includes(line.id) ? '#2563eb' : line.color} />
           {onItemDown && (
             <Strip
               {...line}
@@ -93,7 +93,7 @@ export function Field({ field, selectedId, onItemDown }: FieldProps) {
               width={0.45}
               color="#000"
               hitOnly
-              onPointerDown={(e) => onItemDown('line', line.id, e)}
+              onPointerDown={(e) => onItemDown(line.id, e)}
             />
           )}
           {line.label && (

@@ -1,13 +1,20 @@
-import type { Activity, FieldKind } from '../model/activity';
+import type { Activity, BallMove, FieldKind } from '../model/activity';
 import { FIELD_SIZES } from '../model/activity';
 import { CATALOG_BY_KIND } from '../model/catalog';
 import {
   addBubble,
   addTeam,
-  duplicateObjects,
+  duplicateItems,
+  groupItems,
+  itemKind,
+  lockedCount,
   removeFieldItem,
-  removeObjects,
+  removeItems,
   removeSceneMark,
+  setLocked,
+  ungroupItems,
+  unlockAll,
+  type ItemKind,
   removeTeam,
   rotateObjects,
   setFieldKind,
@@ -29,17 +36,97 @@ export const ZONE_COLORS = ['#3f6fc4', '#f2b48a', '#a9d18e', '#ffe08a', '#f4a3a3
 export const LINE_COLORS = ['#ffffff', '#7ccf4a', '#e5484d', '#f5b400', '#2f6fdf', '#1d2433'];
 const STEP = Math.PI / 12; // 15°
 
+const BALL_MOVES: { id: BallMove; name: string; hint: string }[] = [
+  { id: 'roll', name: '굴러감', hint: '바닥을 굴러가다 마찰로 느려져 멈춥니다' },
+  { id: 'throw', name: '던짐', hint: '손 높이에서 던져 포물선으로 날아갑니다' },
+  { id: 'bounce', name: '튀김', hint: '던진 뒤 바닥에 두 번 튀고 멈춥니다' },
+];
+
 export function Inspector() {
   const sel = useEditor((s) => s.sel);
+  const activity = useEditor((s) => s.activity);
+  const sceneIdx = useEditor((s) => s.sceneIdx);
+  const kinds = sel.map((id) => itemKind(activity, sceneIdx, id));
+  const only = (k: ItemKind) => kinds.length > 0 && kinds.every((v) => v === k);
+  const single = sel.length === 1;
   return (
     <aside className="inspector" aria-label="속성">
-      {!sel && <ActivityPanel />}
-      {sel?.t === 'obj' && <ObjectPanel ids={sel.ids} />}
-      {sel?.t === 'zone' && <ZonePanel id={sel.id} />}
-      {sel?.t === 'line' && <LinePanel id={sel.id} />}
-      {sel?.t === 'arrow' && <MarkPanel id={sel.id} kind="arrow" />}
-      {sel?.t === 'bubble' && <MarkPanel id={sel.id} kind="bubble" />}
+      {!sel.length && <ActivityPanel />}
+      {only('obj') && <ObjectPanel ids={sel} />}
+      {single && only('zone') && <ZonePanel id={sel[0]} />}
+      {single && only('line') && <LinePanel id={sel[0]} />}
+      {single && only('arrow') && <MarkPanel id={sel[0]} kind="arrow" />}
+      {single && only('bubble') && <MarkPanel id={sel[0]} kind="bubble" />}
+      {sel.length > 1 && !only('obj') && <h2>{sel.length}개 고름</h2>}
+      {sel.length > 0 && !only('arrow') && !only('bubble') && <ArrangePanel ids={sel} />}
     </aside>
+  );
+}
+
+/** 묶기·고정·복사·지우기: 무엇을 골랐든 공통 */
+function ArrangePanel({ ids }: { ids: string[] }) {
+  const a = useEditor((s) => s.activity);
+  const sceneIdx = useEditor((s) => s.sceneIdx);
+  const setSel = useEditor((s) => s.setSel);
+  const run = useCommit();
+  const items = [...a.objects, ...a.field.zones, ...a.field.lines].filter((i) => ids.includes(i.id));
+  const groups = new Set(items.map((i) => i.groupId));
+  const oneGroup = items.length > 1 && groups.size === 1 && !groups.has(undefined);
+  const anyGrouped = items.some((i) => i.groupId);
+  const allLocked = items.length > 0 && items.every((i) => i.locked);
+  return (
+    <>
+      <h3>배치</h3>
+      <div className="stack">
+        {items.length > 1 && !oneGroup && (
+          <button onClick={() => run((v) => groupItems(v, ids))} title="함께 골라지고 함께 움직입니다 (Ctrl+G)">
+            하나로 묶기
+          </button>
+        )}
+        {anyGrouped && (
+          <button onClick={() => run((v) => ungroupItems(v, ids))} title="Ctrl+Shift+G">
+            묶음 풀기
+          </button>
+        )}
+        {items.length > 0 && (
+          <button
+            className={allLocked ? 'on' : ''}
+            onClick={() => {
+              run((v) => setLocked(v, ids, !allLocked));
+              if (!allLocked) setSel([]);
+            }}
+            title="고정하면 화면에서 눌러도 골라지지 않아 실수로 옮기지 않습니다"
+          >
+            {allLocked ? '고정 풀기' : '고정하기'}
+          </button>
+        )}
+        {oneGroup && <p className="note">묶음입니다. 하나를 누르면 묶음 전체가 골라집니다.</p>}
+      </div>
+      <h3>편집</h3>
+      <div className="stack">
+        <button
+          onClick={() => {
+            const st = useEditor.getState();
+            const res = duplicateItems(st.activity, ids);
+            st.commit(res.activity);
+            setSel(res.ids);
+          }}
+          title="Ctrl+D"
+        >
+          복사
+        </button>
+        <button
+          className="danger"
+          title="Delete"
+          onClick={() => {
+            run((v) => removeItems(v, sceneIdx, ids));
+            setSel([]);
+          }}
+        >
+          지우기
+        </button>
+      </div>
+    </>
   );
 }
 
@@ -119,6 +206,15 @@ function ActivityPanel() {
       <button className="wide" onClick={() => run((v) => addTeam(v).activity)}>
         팀 추가
       </button>
+      {lockedCount(a) > 0 && (
+        <>
+          <h3>고정</h3>
+          <p className="note">고정된 것이 {lockedCount(a)}개 있습니다. 고정된 것은 화면에서 눌러도 골라지지 않습니다.</p>
+          <button className="wide" onClick={() => run((v) => unlockAll(v))}>
+            모두 고정 풀기
+          </button>
+        </>
+      )}
     </>
   );
 }
@@ -137,6 +233,9 @@ function ObjectPanel({ ids }: { ids: string[] }) {
   const teamColored = objs.every((o) => CATALOG_BY_KIND[o.kind].teamColored);
   const highlighted = ids.every((id) => scene.highlights.includes(id));
   const rot = scene.poses[first.id]?.rot ?? 0;
+  const allHidden = ids.every((id) => scene.poses[id]?.hidden);
+  const canFall = objs.every((o) => o.kind === 'cone' || o.kind === 'cup');
+  const allFallen = ids.every((id) => scene.poses[id]?.fallen);
 
   return (
     <>
@@ -221,37 +320,50 @@ function ObjectPanel({ ids }: { ids: string[] }) {
               const st = useEditor.getState();
               const { activity, id } = addBubble(st.activity, sceneIdx, { objId: first.id, text: '' });
               st.commit(activity);
-              setSel({ t: 'bubble', id });
+              setSel([id]);
             }}
           >
             말풍선 달기
           </button>
         )}
-      </div>
-      <h3>편집</h3>
-      <div className="stack">
         <button
-          onClick={() => {
-            const st = useEditor.getState();
-            const res = duplicateObjects(st.activity, ids);
-            st.commit(res.activity);
-            setSel({ t: 'obj', ids: res.ids });
-          }}
-          title="Ctrl+D"
+          className={allHidden ? 'on' : ''}
+          title="이 장면에서만 안 보이게 합니다(나갔다 들어오는 학생, 치운 장비)"
+          onClick={() =>
+            run((v) => setPoses(v, sceneIdx, Object.fromEntries(ids.map((id) => [id, { hidden: !allHidden }]))))
+          }
         >
-          복사
+          {allHidden ? '이 장면에서 보이기' : '이 장면에서 숨기기'}
         </button>
-        <button
-          className="danger"
-          title="Delete"
-          onClick={() => {
-            run((v) => removeObjects(v, ids));
-            setSel(null);
-          }}
-        >
-          지우기
-        </button>
+        {canFall && (
+          <button
+            className={allFallen ? 'on' : ''}
+            title="공에 맞아 넘어진 상태. 공이 지나가는 장면이면 맞는 순간 쓰러집니다"
+            onClick={() =>
+              run((v) => setPoses(v, sceneIdx, Object.fromEntries(ids.map((id) => [id, { fallen: !allFallen }]))))
+            }
+          >
+            {allFallen ? '다시 세우기' : '넘어뜨리기'}
+          </button>
+        )}
       </div>
+      {single && first.kind === 'ball' && sceneIdx > 0 && (
+        <>
+          <h3>앞 장면에서 이 자리로 올 때</h3>
+          <div className="seg">
+            {BALL_MOVES.map((m) => (
+              <button
+                key={m.id}
+                className={(scene.poses[first.id]?.move ?? 'roll') === m.id ? 'on' : ''}
+                title={m.hint}
+                onClick={() => run((v) => setPoses(v, sceneIdx, { [first.id]: { move: m.id } }))}
+              >
+                {m.name}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </>
   );
 }
@@ -298,7 +410,7 @@ function ZonePanel({ id }: { id: string }) {
         className="wide danger"
         onClick={() => {
           run((v) => removeFieldItem(v, id));
-          setSel(null);
+          setSel([]);
         }}
       >
         구역 지우기
@@ -344,7 +456,7 @@ function LinePanel({ id }: { id: string }) {
         className="wide danger"
         onClick={() => {
           run((v) => removeFieldItem(v, id));
-          setSel(null);
+          setSel([]);
         }}
       >
         선 지우기
@@ -379,7 +491,7 @@ function MarkPanel({ id, kind }: { id: string; kind: 'arrow' | 'bubble' }) {
         className="wide danger"
         onClick={() => {
           run((v) => removeSceneMark(v, sceneIdx, id));
-          setSel(null);
+          setSel([]);
         }}
       >
         지우기

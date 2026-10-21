@@ -1,4 +1,5 @@
 import type { Activity, BoardObject, Pose, Scene } from '../model/activity';
+import { addSceneAfter, setPoses } from '../model/ops';
 
 // 견본: 콘 축구(PPT 31~38쪽을 참고해 새로 구성).
 // 경계선 뒤의 상대 팀 콘을 공으로 넘어뜨리면 점수.
@@ -27,7 +28,7 @@ const yellowSpots: [number, number][] = [
 ];
 yellowSpots.forEach(([x, z], i) => put({ id: `y${i}`, kind: 'kid', teamId: 'yellow' }, x, z, Math.PI / 2));
 yellowSpots.forEach(([x, z], i) => put({ id: `r${i}`, kind: 'kid', teamId: 'red' }, -x, -z, -Math.PI / 2));
-put({ id: 'ball', kind: 'ball' }, 0, 0);
+put({ id: 'ball', kind: 'ball' }, -3.1, 2.3);
 
 const first: Scene = {
   id: 'cs1',
@@ -38,7 +39,7 @@ const first: Scene = {
   highlights: [],
 };
 
-export const coneSoccer: Activity = {
+const layout: Activity = {
   id: 'sample-cone-soccer',
   title: '콘 축구',
   info: {
@@ -72,3 +73,35 @@ export const coneSoccer: Activity = {
   objects,
   scenes: [first],
 };
+
+// 장면 2~4: 패스 → 몰고 가기 → 슛으로 콘 넘어뜨리기
+function withPlay(a: Activity): Activity {
+  let next = addSceneAfter(a, 0).activity;
+  next = setPoses(next, 1, {
+    ball: { x: -0.95, z: -3.3, move: 'throw' },
+    y4: { rot: Math.PI * 0.75 },
+    r4: { x: 1.8, z: -2.2 },
+  });
+  next.scenes[1].caption = '공을 다른 성별 친구에게 연결한다.';
+  next.scenes[1].highlights = ['y4'];
+
+  next = addSceneAfter(next, 1).activity;
+  next = setPoses(next, 2, {
+    y4: { x: 5.2, z: -2.6, rot: Math.PI / 2 },
+    ball: { x: 5.6, z: -2.5, move: 'roll' },
+    r4: { x: 4.2, z: -1.4 },
+    r0: { x: 6.5, z: 1.6 },
+  });
+  next.scenes[2].caption = '공을 몰고 상대 콘 쪽으로 간다.';
+
+  next = addSceneAfter(next, 2).activity;
+  next = setPoses(next, 3, {
+    ball: { x: 10.2, z: -2.15, move: 'roll' },
+    rcone1: { fallen: true },
+  });
+  next.scenes[3].caption = '경계선 밖에서 차서 콘을 넘어뜨리면 1점!';
+  next.scenes[3].highlights = ['rcone1'];
+  return next;
+}
+
+export const coneSoccer: Activity = withPlay(layout);

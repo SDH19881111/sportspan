@@ -277,3 +277,186 @@ export function setFieldKind(a: Activity, kind: Activity['field']['kind']): Acti
   next.field.kind = kind;
   return next;
 }
+
+// ── 여러 종류를 함께 다루기(고르기·묶음·고정) ──────────
+
+export type ItemKind = 'obj' | 'zone' | 'line' | 'arrow' | 'bubble';
+
+export function itemKind(a: Activity, sceneIdx: number, id: string): ItemKind | null {
+  if (a.objects.some((o) => o.id === id)) return 'obj';
+  if (a.field.zones.some((z) => z.id === id)) return 'zone';
+  if (a.field.lines.some((l) => l.id === id)) return 'line';
+  const s = a.scenes[sceneIdx];
+  if (s?.arrows.some((v) => v.id === id)) return 'arrow';
+  if (s?.bubbles.some((v) => v.id === id)) return 'bubble';
+  return null;
+}
+
+function arrangeables(a: Activity): (BoardObject | FieldZone | FieldLine)[] {
+  return [...a.objects, ...a.field.zones, ...a.field.lines];
+}
+
+/** 묶음에 든 것을 하나라도 고르면 그 묶음 전체를 고른 것으로 친다. */
+export function expandGroups(a: Activity, ids: string[]): string[] {
+  const items = arrangeables(a);
+  const groups = new Set(items.filter((i) => ids.includes(i.id) && i.groupId).map((i) => i.groupId));
+  const out = new Set(ids);
+  for (const i of items) if (i.groupId && groups.has(i.groupId)) out.add(i.id);
+  return [...out];
+}
+
+export function isLocked(a: Activity, id: string): boolean {
+  return !!arrangeables(a).find((i) => i.id === id)?.locked;
+}
+
+/**
+ * 끌기 시작할 때의 활동(base)을 기준으로 고른 것을 모두 dx·dz만큼 옮긴다.
+ * 물건·화살표는 지금 장면에서만, 구역·선은 경기장 자체가 옮겨진다(모든 장면).
+ */
+export function moveItems(base: Activity, sceneIdx: number, ids: string[], dx: number, dz: number): Activity {
+  const next = clone(base);
+  const scene = next.scenes[sceneIdx];
+  for (const id of ids) {
+    const p = scene.poses[id];
+    if (p && next.objects.some((o) => o.id === id)) {
+      [p.x, p.z] = clampToField(base, p.x + dx, p.z + dz);
+      continue;
+    }
+    const z = next.field.zones.find((v) => v.id === id);
+    if (z) {
+      z.x = round(z.x + dx);
+      z.z = round(z.z + dz);
+      continue;
+    }
+    const l = next.field.lines.find((v) => v.id === id) ?? scene.arrows.find((v) => v.id === id);
+    if (l) {
+      l.x1 = round(l.x1 + dx);
+      l.z1 = round(l.z1 + dz);
+      l.x2 = round(l.x2 + dx);
+      l.z2 = round(l.z2 + dz);
+    }
+  }
+  return next;
+}
+
+export function removeItems(a: Activity, sceneIdx: number, ids: string[]): Activity {
+  const next = removeObjects(a, ids.filter((id) => a.objects.some((o) => o.id === id)));
+  next.field.zones = next.field.zones.filter((z) => !ids.includes(z.id));
+  next.field.lines = next.field.lines.filter((l) => !ids.includes(l.id));
+  const s = next.scenes[sceneIdx];
+  s.arrows = s.arrows.filter((v) => !ids.includes(v.id));
+  s.bubbles = s.bubbles.filter((v) => !ids.includes(v.id));
+  return next;
+}
+
+/** 물건·구역·선을 하나로 묶는다(화살표·말풍선은 장면 표시라 묶지 않는다). */
+export function groupItems(a: Activity, ids: string[]): Activity {
+  const next = clone(a);
+  const members = arrangeables(next).filter((i) => ids.includes(i.id));
+  if (members.length < 2) return a;
+  const gid = newId('g');
+  for (const m of members) m.groupId = gid;
+  return next;
+}
+
+export function ungroupItems(a: Activity, ids: string[]): Activity {
+  const next = clone(a);
+  for (const m of arrangeables(next)) if (ids.includes(m.id)) delete m.groupId;
+  return next;
+}
+
+export function setLocked(a: Activity, ids: string[], locked: boolean): Activity {
+  const next = clone(a);
+  for (const m of arrangeables(next)) {
+    if (!ids.includes(m.id)) continue;
+    if (locked) m.locked = true;
+    else delete m.locked;
+  }
+  return next;
+}
+
+export function lockedCount(a: Activity): number {
+  return arrangeables(a).filter((i) => i.locked).length;
+}
+
+export function unlockAll(a: Activity): Activity {
+  return setLocked(
+    a,
+    arrangeables(a).map((i) => i.id),
+    false,
+  );
+}
+
+/** 물건·구역·선 복사. 묶음째 복사하면 복사본끼리 새 묶음이 된다. */
+export function duplicateItems(a: Activity, ids: string[], offset = 0.6): { activity: Activity; ids: string[] } {
+  const objIds = ids.filter((id) => a.objects.some((o) => o.id === id));
+  const res = duplicateObjects(a, objIds, offset);
+  const next = res.activity;
+  const made = [...res.ids];
+  for (const z of a.field.zones.filter((v) => ids.includes(v.id))) {
+    const id = newId('z');
+    next.field.zones.push({ ...z, id, x: round(z.x + offset), z: round(z.z + offset) });
+    made.push(id);
+  }
+  for (const l of a.field.lines.filter((v) => ids.includes(v.id))) {
+    const id = newId('l');
+    next.field.lines.push({
+      ...l,
+      id,
+      x1: round(l.x1 + offset),
+      z1: round(l.z1 + offset),
+      x2: round(l.x2 + offset),
+      z2: round(l.z2 + offset),
+    });
+    made.push(id);
+  }
+  // 묶음 번호 새로 매기기
+  const remap = new Map<string, string>();
+  for (const m of arrangeables(next)) {
+    if (!made.includes(m.id) || !m.groupId) continue;
+    if (!remap.has(m.groupId)) remap.set(m.groupId, newId('g'));
+    m.groupId = remap.get(m.groupId);
+  }
+  return { activity: next, ids: made };
+}
+
+// ── 장면 ───────────────────────────────────────────────
+
+/**
+ * idx 장면을 복사해 바로 뒤에 새 장면을 만든다. 자리·숨김·넘어짐은 이어받고,
+ * 설명·화살표·말풍선·강조와 공의 동작(이 장면으로 '오는' 방법)은 비운다.
+ */
+export function addSceneAfter(a: Activity, idx: number): { activity: Activity; idx: number } {
+  const next = clone(a);
+  const src = next.scenes[idx];
+  const poses: Record<string, Pose> = {};
+  for (const [id, p] of Object.entries(src.poses)) {
+    const { move: _move, ...rest } = p;
+    poses[id] = rest;
+  }
+  next.scenes.splice(idx + 1, 0, {
+    id: newId('sc'),
+    caption: '',
+    poses,
+    bubbles: [],
+    arrows: [],
+    highlights: [],
+  });
+  return { activity: next, idx: idx + 1 };
+}
+
+export function removeScene(a: Activity, idx: number): Activity {
+  if (a.scenes.length <= 1) return a;
+  const next = clone(a);
+  next.scenes.splice(idx, 1);
+  return next;
+}
+
+export function moveScene(a: Activity, idx: number, dir: -1 | 1): Activity {
+  const to = idx + dir;
+  if (to < 0 || to >= a.scenes.length) return a;
+  const next = clone(a);
+  const [s] = next.scenes.splice(idx, 1);
+  next.scenes.splice(to, 0, s);
+  return next;
+}

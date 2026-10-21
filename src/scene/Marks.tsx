@@ -91,3 +91,35 @@ export function HighlightRing({ x, z, radius }: { x: number; z: number; radius: 
     </mesh>
   );
 }
+
+/** 앞 장면에서 있던 자리(흐린 원)와 지금 자리까지의 점선 */
+export function Ghost(p: { x0: number; z0: number; x1: number; z1: number; radius: number; color: string }) {
+  const len = Math.hypot(p.x1 - p.x0, p.z1 - p.z0);
+  const angle = Math.atan2(p.z1 - p.z0, p.x1 - p.x0);
+  const dash = 0.25;
+  const n = Math.max(1, Math.floor(len / (dash * 2)));
+  const dashes = [];
+  for (let i = 0; i < n; i++) {
+    const k = (i * dash * 2 + dash / 2) / len;
+    if (k > 1) break;
+    dashes.push(
+      <mesh
+        key={i}
+        position={[p.x0 + (p.x1 - p.x0) * k, 0.018, p.z0 + (p.z1 - p.z0) * k]}
+        rotation={[-Math.PI / 2, 0, -angle]}
+      >
+        <planeGeometry args={[dash, 0.07]} />
+        <meshBasicMaterial color={p.color} transparent opacity={0.8} />
+      </mesh>,
+    );
+  }
+  return (
+    <group>
+      <mesh position={[p.x0, 0.016, p.z0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[p.radius + 0.05, 20]} />
+        <meshBasicMaterial color={p.color} transparent opacity={0.35} />
+      </mesh>
+      {dashes}
+    </group>
+  );
+}

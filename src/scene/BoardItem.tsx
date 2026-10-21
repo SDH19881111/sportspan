@@ -1,28 +1,26 @@
 import { Html } from '@react-three/drei';
-import type { Activity, BoardObject, Pose } from '../model/activity';
+import type { Activity, BoardObject } from '../model/activity';
 import { colorOf } from '../model/activity';
 import { CATALOG_BY_KIND } from '../model/catalog';
+import type { ItemState } from '../motion/transition';
 import { Equipment } from './models/Equipment';
-import { Kid, type KidPoseState } from './models/Kid';
+import { Kid } from './models/Kid';
 
 interface Props {
   activity: Activity;
   obj: BoardObject;
-  pose: Pose;
-  y?: number; // 공이 떠 있을 때 높이
-  kidPose?: KidPoseState;
-  tilt?: number;
+  state: ItemState;
   selected?: boolean;
 }
 
-export function BoardItem({ activity, obj, pose, y = 0, kidPose, tilt, selected }: Props) {
-  if (pose.hidden) return null;
+export function BoardItem({ activity, obj, state, selected }: Props) {
+  if (state.hidden) return null;
   const color = colorOf(activity, obj) ?? CATALOG_BY_KIND[obj.kind].defaultColor;
   return (
-    <group position={[pose.x, y, pose.z]} rotation={[0, pose.rot, 0]} userData={{ objId: obj.id }}>
+    <group position={[state.x, state.y, state.z]} rotation={[0, state.rot, 0]} userData={{ objId: obj.id }}>
       {obj.kind === 'kid' ? (
         <>
-          <Kid shirt={color} pose={kidPose} selected={selected} />
+          <Kid shirt={color} pose={state} selected={selected} />
           {obj.label && (
             <Html position={[0, 1.55, 0]} center zIndexRange={[15, 5]} style={{ pointerEvents: 'none' }}>
               <div className="name-tag" style={{ borderColor: color }}>
@@ -32,7 +30,7 @@ export function BoardItem({ activity, obj, pose, y = 0, kidPose, tilt, selected 
           )}
         </>
       ) : (
-        <Equipment kind={obj.kind} color={color} selected={selected} tilt={tilt} />
+        <Equipment kind={obj.kind} color={color} selected={selected} tilt={state.tilt} />
       )}
     </group>
   );

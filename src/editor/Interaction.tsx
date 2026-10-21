@@ -98,7 +98,7 @@ export function Interaction() {
         { x: p[0], z: p[1], rot: 0 },
       );
       st.commit(activity);
-      st.setSel({ t: 'obj', ids: [id] });
+      st.setSel([id]);
       return;
     }
 
@@ -130,7 +130,7 @@ export function Interaction() {
             res = addArrow(cur.activity, cur.sceneIdx, pick(d));
           }
           cur.commit(res.activity);
-          cur.setSel({ t: kind, id: res.id });
+          cur.setSel([res.id]);
         },
       );
       return;
@@ -142,7 +142,7 @@ export function Interaction() {
       const sy = native.clientY;
       const up = (ev: PointerEvent) => {
         window.removeEventListener('pointerup', up);
-        if (Math.hypot(ev.clientX - sx, ev.clientY - sy) < CLICK_PX) useEditor.getState().setSel(null);
+        if (Math.hypot(ev.clientX - sx, ev.clientY - sy) < CLICK_PX) useEditor.getState().setSel([]);
       };
       window.addEventListener('pointerup', up);
     }

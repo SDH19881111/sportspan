@@ -24,7 +24,13 @@ export interface Team {
   color: string; // '#rrggbb'
 }
 
-export interface FieldZone {
+/** 묶음과 고정은 물건·구역·선 모두에 붙을 수 있다. */
+export interface Arrangeable {
+  groupId?: string; // 같은 groupId끼리 함께 골라지고 함께 움직인다
+  locked?: boolean; // 고정: 화면에서 눌러도 골라지지 않는다
+}
+
+export interface FieldZone extends Arrangeable {
   id: string;
   x: number;
   z: number;
@@ -34,7 +40,7 @@ export interface FieldZone {
   label?: string;
 }
 
-export interface FieldLine {
+export interface FieldLine extends Arrangeable {
   id: string;
   x1: number;
   z1: number;
@@ -52,7 +58,7 @@ export interface Field {
   lines: FieldLine[];
 }
 
-export interface BoardObject {
+export interface BoardObject extends Arrangeable {
   id: string;
   kind: ObjectKind;
   teamId?: string;
@@ -60,11 +66,16 @@ export interface BoardObject {
   label?: string; // 아이 이름·번호
 }
 
+/** 공이 앞 장면 자리에서 이 장면 자리로 오는 방법 */
+export type BallMove = 'roll' | 'throw' | 'bounce';
+
 export interface Pose {
   x: number;
   z: number;
   rot: number;
-  hidden?: boolean;
+  hidden?: boolean; // 이 장면에서는 안 보임
+  move?: BallMove; // 공만: 기본은 굴러감
+  fallen?: boolean; // 콘·컵만: 이 장면에서 넘어져 있음
 }
 
 export interface Bubble {
@@ -103,6 +114,7 @@ export interface ActivityInfo {
 export interface Activity {
   id: string;
   title: string;
+  updatedAt?: number; // 내 설명판 목록 정렬용(ms)
   info: ActivityInfo;
   field: Field;
   teams: Team[];

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { Activity, ObjectKind } from '../model/activity';
+import { itemKind } from '../model/ops';
 import { coneSoccer } from '../samples/coneSoccer';
 
 export type Tool =
@@ -10,10 +11,8 @@ export type Tool =
   | { t: 'arrow' }
   | { t: 'bubble' };
 
-export type Selection =
-  | { t: 'obj'; ids: string[] }
-  | { t: 'zone' | 'line' | 'arrow' | 'bubble'; id: string }
-  | null;
+/** 고른 것들의 id(물건·구역·선·화살표·말풍선이 섞일 수 있다) */
+export type Selection = string[];
 
 /** 구역·선·화살표를 그리는 중의 미리보기 */
 export interface Draft {
@@ -22,6 +21,12 @@ export interface Draft {
   z1: number;
   x2: number;
   z2: number;
+}
+
+/** 재생 중: target 장면으로 넘어가는 움직임을 보여 준다. all이면 끝까지 이어서. */
+export interface Playing {
+  target: number;
+  all: boolean;
 }
 
 const HISTORY_LIMIT = 100;
@@ -39,6 +44,9 @@ interface EditorState {
   past: Activity[];
   future: Activity[];
   gestureBase: Activity | null;
+  playing: Playing | null;
+  play: (target: number, all: boolean) => void;
+  stop: () => void;
 
   /** 바로 기록하는 변경(버튼·키 한 번). mergeKey가 같은 연속 입력(글자 치기)은 한 번으로 묶는다. */
   commit: (next: Activity, mergeKey?: string) => void;
@@ -56,6 +64,7 @@ interface EditorState {
   setZoneColor: (c: string) => void;
   setLineColor: (c: string) => void;
   load: (a: Activity) => void;
+  setSceneIdx: (idx: number) => void;
 }
 
 function pushPast(past: Activity[], a: Activity) {
@@ -67,7 +76,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   activity: structuredClone(coneSoccer),
   sceneIdx: 0,
   tool: { t: 'select' },
-  sel: null,
+  sel: [],
   draft: null,
   dragging: false,
   zoneColor: '#3f6fc4',
@@ -75,6 +84,13 @@ export const useEditor = create<EditorState>((set, get) => ({
   past: [],
   future: [],
   gestureBase: null,
+  playing: null,
+  play: (target, all) => {
+    const n = get().activity.scenes.length;
+    if (target < 1 || target >= n) return;
+    set({ playing: { target, all }, sceneIdx: target - 1, sel: [], tool: { t: 'select' }, draft: null });
+  },
+  stop: () => set({ playing: null }),
 
   lastMerge: null,
   commit: (next, mergeKey) => {
@@ -106,13 +122,27 @@ export const useEditor = create<EditorState>((set, get) => ({
     const { past, activity, future } = get();
     if (!past.length) return;
     const prev = past[past.length - 1];
-    set({ activity: prev, past: past.slice(0, -1), future: [activity, ...future], sel: validSel(get().sel, prev) });
+    const sceneIdx = Math.min(get().sceneIdx, prev.scenes.length - 1);
+    set({
+      activity: prev,
+      sceneIdx,
+      past: past.slice(0, -1),
+      future: [activity, ...future],
+      sel: validSel(get().sel, prev, sceneIdx),
+    });
   },
   redo: () => {
     const { past, activity, future } = get();
     if (!future.length) return;
     const next = future[0];
-    set({ activity: next, past: pushPast(past, activity), future: future.slice(1), sel: validSel(get().sel, next) });
+    const sceneIdx = Math.min(get().sceneIdx, next.scenes.length - 1);
+    set({
+      activity: next,
+      sceneIdx,
+      past: pushPast(past, activity),
+      future: future.slice(1),
+      sel: validSel(get().sel, next, sceneIdx),
+    });
   },
   setTool: (tool) => set({ tool, draft: null }),
   setSel: (sel) => set({ sel }),
@@ -120,23 +150,27 @@ export const useEditor = create<EditorState>((set, get) => ({
   setDragging: (dragging) => set({ dragging }),
   setZoneColor: (zoneColor) => set({ zoneColor }),
   setLineColor: (lineColor) => set({ lineColor }),
-  load: (a) => set({ activity: a, sceneIdx: 0, sel: null, past: [], future: [], tool: { t: 'select' } }),
+  load: (a) =>
+    set({ activity: a, sceneIdx: 0, sel: [], past: [], future: [], tool: { t: 'select' }, draft: null, playing: null }),
+  setSceneIdx: (sceneIdx) => {
+    const { activity, sel } = get();
+    const idx = Math.max(0, Math.min(activity.scenes.length - 1, sceneIdx));
+    set({ sceneIdx: idx, sel: validSel(sel, activity, idx), lastMerge: null });
+  },
 }));
 
-/** 실행 취소 뒤에 사라진 것을 고르고 있으면 선택을 정리한다. */
-export function validSel(sel: Selection, a: Activity): Selection {
-  if (!sel) return null;
-  if (sel.t === 'obj') {
-    const ids = sel.ids.filter((id) => a.objects.some((o) => o.id === id));
-    return ids.length ? { t: 'obj', ids } : null;
-  }
-  const exists =
-    a.field.zones.some((z) => z.id === sel.id) ||
-    a.field.lines.some((l) => l.id === sel.id) ||
-    a.scenes.some((s) => s.arrows.some((v) => v.id === sel.id) || s.bubbles.some((v) => v.id === sel.id));
-  return exists ? sel : null;
+/** 실행 취소·장면 바꾸기 뒤에 없는 것을 고르고 있으면 빼 준다. */
+export function validSel(sel: Selection, a: Activity, sceneIdx: number): Selection {
+  const kept = sel.filter((id) => itemKind(a, sceneIdx, id));
+  return kept.length === sel.length ? sel : kept;
 }
 
-export function selectedObjIds(sel: Selection): string[] {
-  return sel?.t === 'obj' ? sel.ids : [];
+/** 고른 것 중 물건만 */
+export function selectedObjIds(sel: Selection, a: Activity): string[] {
+  return sel.filter((id) => a.objects.some((o) => o.id === id));
+}
+
+// 개발 중 브라우저 콘솔에서 상태를 들여다볼 수 있게
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+  (window as unknown as { __peboard: typeof useEditor }).__peboard = useEditor;
 }

@@ -11,6 +11,23 @@ npm test
 npm run build    # dist/ — file:// 로 열어도 동작(base './')
 ```
 
+## 다른 컴퓨터에서 이어서 작업하기
+
+처음 한 번(Windows 명령 프롬프트):
+
+```
+cd /d C:\dev
+git clone https://github.com/SDH19881111/sportspan.git
+cd sportspan
+npm install
+npm run dev
+```
+
+그다음부터는 작업 전에 `git pull`, 끝나면 `git add -A` → `git commit -m "내용"` → `git push`.
+
+- OneDrive 폴더(바탕화면 등) 안에서 `npm install` 하지 말 것. `C:\dev` 같은 곳에 둔다.
+- 만든 설명판은 그 컴퓨터의 브라우저에 저장된다. 다른 컴퓨터로 옮기려면 **내 설명판 → 파일로 내보내기**로 받은 `.json`을 저쪽에서 **파일 가져오기** 한다.
+
 ## 구조
 
 | 위치 | 역할 |

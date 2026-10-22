@@ -178,7 +178,16 @@ function AnimMarks({ activity, timeline, sel }: { activity: Activity; timeline: 
                 onEndDown={(e) => onPathEndDown(an.id, e)}
                 onViaDown={(i, e) => onViaDown(an.id, i, e)}
               />
-              <AnimBadge x={it.end.x} z={it.end.z} y={0.05} label={label + carry} selected={chosen} onPointerDown={pick} />
+              {/* 번호표가 도착점 원 위에 겹쳐 있으니, 번호표를 끌어도 도착점이 옮겨진다(멀리서 보면 원이 번호에 가려진다) */}
+              <AnimBadge
+                x={it.end.x}
+                z={it.end.z}
+                y={0.05}
+                label={label + carry}
+                selected={chosen}
+                draggable
+                onPointerDown={(e) => (e.shiftKey || e.ctrlKey || e.metaKey ? pick(e) : onBadgeDown(an.id, e))}
+              />
             </group>
           );
         }
@@ -483,18 +492,38 @@ function onViaDown(animId: string, index: number, e: ThreeEvent<PointerEvent>) {
   );
 }
 
+/** 이동 번호표: 누르면 그 애니메이션을 고르고, 끌면 도착점을 옮긴다. */
+function onBadgeDown(animId: string, e: React.PointerEvent) {
+  e.stopPropagation();
+  const st = useEditor.getState();
+  if (e.button !== 0) return;
+  if (st.tool.t !== 'select') {
+    // 다른 도구일 때는 고르기만(예전처럼)
+    st.setSel([animId]);
+    st.setRightTab('anims');
+    return;
+  }
+  dragPathEnd(animId, e.nativeEvent);
+}
+
 /** 도착점 원을 끌어 이동 도착점을 옮긴다. */
 function onPathEndDown(animId: string, e: ThreeEvent<PointerEvent>) {
   if (e.button !== 0) return;
   const st = useEditor.getState();
   if (st.playing || st.tool.t !== 'select') return;
   e.stopPropagation();
+  dragPathEnd(animId, e.nativeEvent);
+}
+
+function dragPathEnd(animId: string, native: PointerEvent) {
+  const st = useEditor.getState();
+  if (st.playing) return;
   st.setSel([animId]);
   st.setRightTab('anims');
   st.beginGesture();
   const base = st.activity;
   startDrag(
-    e.nativeEvent,
+    native,
     (p) => {
       const now = useEditor.getState();
       const [x, z] = snapPoint(p);

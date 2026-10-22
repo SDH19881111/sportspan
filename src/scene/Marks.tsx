@@ -99,12 +99,15 @@ export function AnimBadge(p: {
   y?: number;
   label: string;
   selected?: boolean;
+  /** 끌어서 도착점을 옮길 수 있는 번호표(이동) */
+  draggable?: boolean;
   onPointerDown?: (e: React.PointerEvent) => void;
 }) {
   return (
     <Html position={[p.x, p.y ?? 0.05, p.z]} center zIndexRange={[25, 15]} style={{ pointerEvents: 'none' }}>
       <div
-        className={`anim-badge${p.selected ? ' selected' : ''}`}
+        className={`anim-badge${p.selected ? ' selected' : ''}${p.draggable ? ' draggable' : ''}`}
+        title={p.draggable ? '누르면 이 이동을 고르고, 끌면 도착점이 옮겨집니다' : undefined}
         style={{ pointerEvents: p.onPointerDown ? 'auto' : 'none' }}
         onPointerDown={p.onPointerDown}
       >

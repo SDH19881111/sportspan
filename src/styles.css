@@ -864,6 +864,11 @@ textarea:focus-visible {
   background: var(--accent);
 }
 
+.anim-badge.draggable {
+  cursor: move;
+  touch-action: none;
+}
+
 /* ── 오른쪽 패널 탭 ───────────────────────────── */
 
 .tabs {

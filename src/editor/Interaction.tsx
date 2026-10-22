@@ -4,6 +4,7 @@ import type { ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { addArrow, addLine, addMoves, addObject, addZone, expandGroups, faceCenter } from '../model/ops';
+import { noteRightPress } from './ContextMenu';
 import { useEditor } from './store';
 
 // 화면 좌표 → 바닥(y=0) 좌표. 캔버스 밖으로 끌어도 계속 계산되도록 window 이벤트로 끈다.
@@ -131,6 +132,10 @@ export function Interaction() {
   }, [controls, tool]);
 
   const onDown = (e: ThreeEvent<PointerEvent>) => {
+    if (e.button === 2) {
+      noteRightPress({ floor: floorApi.floorAt(e.nativeEvent.clientX, e.nativeEvent.clientY) });
+      return;
+    }
     if (e.button !== 0) return;
     const st = useEditor.getState();
     const t = st.tool;
@@ -243,6 +248,10 @@ export function Interaction() {
 }
 
 function onSkyDown(e: ThreeEvent<PointerEvent>) {
+  if (e.button === 2) {
+    noteRightPress({ floor: null });
+    return;
+  }
   if (e.button !== 0) return;
   const st = useEditor.getState();
   if (st.tool.t !== 'select') return;

@@ -67,6 +67,13 @@ function loadGrid(): GridSettings {
 }
 export type RightTab = 'props' | 'anims';
 
+/** 오른쪽 클릭 빠른 메뉴: 화면 좌표와, 바닥을 눌렀을 때의 바닥 좌표 */
+export interface ContextMenuState {
+  x: number;
+  y: number;
+  floor: [number, number] | null;
+}
+
 const HISTORY_LIMIT = 100;
 const MERGE_MS = 1500;
 
@@ -106,6 +113,11 @@ interface EditorState {
   /** 재생 빠르기(0.5배 ~ 2배) */
   playRate: number;
   setPlayRate: (r: number) => void;
+  /** 내 설명판 창(Ctrl+O로도 연다) */
+  libOpen: boolean;
+  setLibOpen: (v: boolean) => void;
+  menu: ContextMenuState | null;
+  setMenu: (m: ContextMenuState | null) => void;
 
   /** 바로 기록하는 변경(버튼·키 한 번). mergeKey가 같은 연속 입력(글자 치기)은 한 번으로 묶는다. */
   commit: (next: Activity, mergeKey?: string) => void;
@@ -186,6 +198,10 @@ export const useEditor = create<EditorState>((set, get) => ({
   setMarquee: (marquee) => set({ marquee }),
   playRate: 1,
   setPlayRate: (playRate) => set({ playRate }),
+  libOpen: false,
+  setLibOpen: (libOpen) => set({ libOpen, menu: null }),
+  menu: null,
+  setMenu: (menu) => set({ menu }),
 
   lastMerge: null,
   commit: (next, mergeKey) => {

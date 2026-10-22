@@ -10,10 +10,10 @@ import {
   duplicateItems,
   flipItems,
   groupItems,
+  isLocked,
   itemKind,
   lockedCount,
   removeFieldItem,
-  removeItems,
   removeSceneMark,
   setLocked,
   ungroupItems,
@@ -32,6 +32,7 @@ import {
   updateTeam,
   updateZone,
 } from '../model/ops';
+import { deleteSel } from './actions';
 import { AnimPane } from './AnimPane';
 import { useEditor } from './store';
 
@@ -111,26 +112,24 @@ function ArrangePanel({ ids }: { ids: string[] }) {
         {items.length > 0 && (
           <button
             className={allLocked ? 'on' : ''}
-            onClick={() => {
-              run((v) => setLocked(v, ids, !allLocked));
-              if (!allLocked) setSel([]);
-            }}
-            title="고정하면 화면에서 눌러도 골라지지 않아 실수로 옮기지 않습니다"
+            onClick={() => run((v) => setLocked(v, ids, !allLocked))}
+            title="고정하면 끌어도 옮겨지지 않고 지워지지 않습니다. 눌러서 고를 수는 있습니다"
           >
             {allLocked ? '고정 풀기' : '고정하기'}
           </button>
         )}
         {oneGroup && <p className="note">묶음입니다. 하나를 누르면 묶음 전체가 골라집니다.</p>}
+        {allLocked && <p className="note">고정됨: 옮기거나 돌리거나 지울 수 없습니다. 고치려면 "고정 풀기".</p>}
       </div>
       <div className="seg">
         <button
-          onClick={() => run((v) => flipItems(v, sceneIdx, ids, 'x'))}
+          onClick={() => run((v) => flipItems(v, sceneIdx, ids.filter((id) => !isLocked(v, id)), 'x'))}
           title="고른 것들의 가운데를 기준으로 좌우를 바꿉니다. 보는 방향·이 장면의 이동 경로도 함께 (H)"
         >
           ↔ 좌우 뒤집기
         </button>
         <button
-          onClick={() => run((v) => flipItems(v, sceneIdx, ids, 'z'))}
+          onClick={() => run((v) => flipItems(v, sceneIdx, ids.filter((id) => !isLocked(v, id)), 'z'))}
           title="고른 것들의 가운데를 기준으로 앞뒤를 바꿉니다 (V)"
         >
           ↕ 앞뒤 뒤집기
@@ -151,11 +150,9 @@ function ArrangePanel({ ids }: { ids: string[] }) {
         </button>
         <button
           className="danger"
-          title="Delete"
-          onClick={() => {
-            run((v) => removeItems(v, sceneIdx, ids));
-            setSel([]);
-          }}
+          title="Delete (고정된 것은 남깁니다)"
+          disabled={allLocked}
+          onClick={deleteSel}
         >
           지우기
         </button>
@@ -237,7 +234,7 @@ function ActivityPanel() {
           </button>
         ))}
       </div>
-      {court && <p className="note">선은 고정되어 있어 학생을 놓고 끌 때 방해하지 않습니다.</p>}
+      {court && <p className="note">선은 고정되어 있어 끌어도 옮겨지지 않습니다. 고치려면 선을 눌러 고른 뒤 "고정 풀기".</p>}
       <h3>팀</h3>
       <ul className="teams">
         {a.teams.map((t) => (
@@ -266,7 +263,7 @@ function ActivityPanel() {
       {lockedCount(a) > 0 && (
         <>
           <h3>고정</h3>
-          <p className="note">고정된 것이 {lockedCount(a)}개 있습니다. 고정된 것은 화면에서 눌러도 골라지지 않습니다.</p>
+          <p className="note">고정된 것이 {lockedCount(a)}개 있습니다. 하나씩 풀려면 그것을 눌러 고른 뒤 "고정 풀기"(오른쪽 클릭 메뉴에도 있음).</p>
           <button className="wide" onClick={() => run((v) => unlockAll(v))}>
             모두 고정 풀기
           </button>
@@ -355,11 +352,11 @@ function ObjectPanel({ ids }: { ids: string[] }) {
       )}
       <h3>방향</h3>
       <div className="rotate">
-        <button onClick={() => run((v) => rotateObjects(v, sceneIdx, ids, STEP))} title="왼쪽으로 15° (Q)">
+        <button onClick={() => run((v) => rotateObjects(v, sceneIdx, ids.filter((id) => !isLocked(v, id)), STEP))} title="왼쪽으로 15° (Q)">
           ↺ 15°
         </button>
         <span className="deg">{single ? `${Math.round((rot * 180) / Math.PI)}°` : ''}</span>
-        <button onClick={() => run((v) => rotateObjects(v, sceneIdx, ids, -STEP))} title="오른쪽으로 15° (E)">
+        <button onClick={() => run((v) => rotateObjects(v, sceneIdx, ids.filter((id) => !isLocked(v, id)), -STEP))} title="오른쪽으로 15° (E)">
           15° ↻
         </button>
       </div>
@@ -374,7 +371,7 @@ function ObjectPanel({ ids }: { ids: string[] }) {
             key={label as string}
             title="이 방향을 보게 합니다"
             onClick={() =>
-              run((v) => setPoses(v, sceneIdx, Object.fromEntries(ids.map((id) => [id, { rot: r as number }]))))
+              run((v) => setPoses(v, sceneIdx, Object.fromEntries(ids.filter((id) => !isLocked(v, id)).map((id) => [id, { rot: r as number }]))))
             }
           >
             {label}

@@ -11,6 +11,7 @@ import { BoardItem } from '../scene/BoardItem';
 import { Field } from '../scene/Field';
 import { AnimBadge, ArrowMark, BubbleTag, HighlightRing, PathMark } from '../scene/Marks';
 import { gridSnap, Interaction, snapPoint, startDrag } from './Interaction';
+import { noteRightPress } from './ContextMenu';
 import { useEditor } from './store';
 
 /** 편집 화면은 애니메이션이 하나도 일어나기 전(장면 시작) 모습을 보여 준다 */
@@ -247,6 +248,7 @@ function SceneMarks(props: {
               interactive
                 ? (e) => {
                     e.stopPropagation();
+                    if (e.button === 2) return noteRightPress({ id: b.id });
                     useEditor.getState().setSel([b.id]);
                     useEditor.getState().setRightTab('props');
                   }
@@ -327,9 +329,15 @@ function DraftShape({ t, x1, z1, x2, z2 }: { t: 'zone' | 'line'; x1: number; z1:
 // ── 누르기 처리 ─────────────────────────────────────────
 
 function onItemDown(id: string, e: ThreeEvent<PointerEvent>) {
-  if (e.button !== 0) return;
   const st = useEditor.getState();
   if (st.playing) return;
+  if (e.button === 2) {
+    // 오른쪽 클릭: 무엇을 눌렀는지만 적어 두고, 메뉴는 손을 뗄 때(contextmenu) 연다
+    e.stopPropagation();
+    noteRightPress({ id });
+    return;
+  }
+  if (e.button !== 0) return;
   const isObj = st.activity.objects.some((o) => o.id === id);
 
   if (st.tool.t === 'bubble') {
@@ -374,11 +382,16 @@ function onItemDown(id: string, e: ThreeEvent<PointerEvent>) {
     return;
   }
 
-  // 놓기·그리기 도구일 때, 또는 고정된 것은 바닥으로 넘긴다.
-  if (st.tool.t !== 'select' || isLocked(st.activity, id)) return;
+  // 놓기·그리기 도구일 때는 바닥으로 넘긴다.
+  if (st.tool.t !== 'select') return;
   e.stopPropagation();
 
   const native = e.nativeEvent;
+  // 고정된 것: 끌면 화면이 돌고(옮겨지지 않는다), 누르기만 하면 골라져서 속성 패널에서 풀 수 있다
+  if (isLocked(st.activity, id)) {
+    clickOnly(native, () => selectClicked(id, native));
+    return;
+  }
   const clicked = expandGroups(st.activity, [id]);
   const cur = st.sel;
   const additive = native.shiftKey || native.ctrlKey || native.metaKey;
@@ -413,6 +426,29 @@ function onItemDown(id: string, e: ThreeEvent<PointerEvent>) {
       if (!moved && !additive && already && cur.length > clicked.length) useEditor.getState().setSel(clicked);
     },
   );
+}
+
+/** 누른 것(묶음이면 묶음째)을 고른다. Shift·Ctrl이면 더하거나 뺀다. */
+function selectClicked(id: string, native: PointerEvent) {
+  const st = useEditor.getState();
+  const clicked = expandGroups(st.activity, [id]);
+  const cur = st.sel;
+  const additive = native.shiftKey || native.ctrlKey || native.metaKey;
+  const already = clicked.every((v) => cur.includes(v));
+  st.setSel(additive ? (already ? cur.filter((v) => !clicked.includes(v)) : [...new Set([...cur, ...clicked])]) : clicked);
+  st.setRightTab('props');
+}
+
+/** 끌지 않고 누르기만 했을 때만 done을 부른다(끌면 화면 돌리기에 맡긴다). */
+function clickOnly(native: PointerEvent, done: () => void) {
+  const sx = native.clientX;
+  const sy = native.clientY;
+  const up = (ev: PointerEvent) => {
+    if (ev.pointerId !== native.pointerId) return;
+    window.removeEventListener('pointerup', up);
+    if (Math.hypot(ev.clientX - sx, ev.clientY - sy) < 6) done();
+  };
+  window.addEventListener('pointerup', up);
 }
 
 /** 자석으로 맞출 기준점: 물건은 서 있는 자리, 구역은 왼쪽 위 모서리, 선·화살표는 시작점 */

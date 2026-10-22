@@ -6,7 +6,8 @@ import { Palette, ToolHint } from './editor/Palette';
 import { Presenter, startPresent } from './present/Presenter';
 import { SceneStrip } from './editor/SceneStrip';
 import { useEditor } from './editor/store';
-import { useShortcuts } from './editor/useShortcuts';
+import { pointer, useShortcuts } from './editor/useShortcuts';
+import { ContextMenu, onStageContextMenu, onStagePointerDownCapture } from './editor/ContextMenu';
 import { setCaption } from './model/ops';
 import { coneSoccer } from './samples/coneSoccer';
 import { Stage, type CameraView } from './scene/Stage';
@@ -97,7 +98,8 @@ export function App() {
   const endPresent = useEditor((s) => s.endPresent);
   const [view, setView] = useState<CameraView>('angle');
   const [viewNonce, setViewNonce] = useState(0);
-  const [libOpen, setLibOpen] = useState(false);
+  const libOpen = useEditor((s) => s.libOpen);
+  const setLibOpen = useEditor((s) => s.setLibOpen);
   const save = useAutosave();
   useShortcuts(save.flush);
   const scene = activity.scenes[sceneIdx];
@@ -109,7 +111,7 @@ export function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <button className="lib-btn" onClick={() => setLibOpen(true)}>
+        <button className="lib-btn" onClick={() => setLibOpen(true)} title="내 설명판 (Ctrl+O)">
           내 설명판
         </button>
         <h1>{activity.title || '이름 없는 활동'}</h1>
@@ -152,7 +154,14 @@ export function App() {
       <div className="workspace">
         <Palette />
         <div className="center">
-          <main className={`stage tool-${tool.t}`} onPointerDown={() => setFocus('canvas')}>
+          <main
+            className={`stage tool-${tool.t}`}
+            onPointerDown={() => setFocus('canvas')}
+            onPointerDownCapture={onStagePointerDownCapture}
+            onContextMenu={onStageContextMenu}
+            onPointerEnter={() => (pointer.overStage = true)}
+            onPointerLeave={() => (pointer.overStage = false)}
+          >
             <Stage field={activity.field} view={view} viewNonce={viewNonce}>
               <EditorScene />
             </Stage>
@@ -177,6 +186,7 @@ export function App() {
         <Inspector />
       </div>
       <MarqueeBox />
+      <ContextMenu />
       {libOpen && <Library onClose={() => setLibOpen(false)} flush={save.flush} />}
     </div>
   );

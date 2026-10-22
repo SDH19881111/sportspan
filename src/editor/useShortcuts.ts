@@ -1,38 +1,38 @@
 import { useEffect } from 'react';
-import {
-  flipItems,
-  clipIsEmpty,
-  copyItems,
-  duplicateItems,
-  pasteItems,
-  type Clip,
-  groupItems,
-  isLocked,
-  moveItems,
-  removeItems,
-  removeScene,
-  rotateObjects,
-  ungroupItems,
-} from '../model/ops';
+import { removeScene } from '../model/ops';
 import { unlockAudio } from '../audio/sfx';
 import { startPresent } from '../present/Presenter';
+import {
+  copySel,
+  cycleSel,
+  deleteSel,
+  duplicateSel,
+  flipSel,
+  focusRename,
+  groupSel,
+  newScene,
+  nudgeSel,
+  paste,
+  rotateSel,
+  selectAll,
+} from './actions';
 import { floorApi } from './Interaction';
-import { selectedObjIds, useEditor } from './store';
+import { useEditor } from './store';
 
-/** 복사해 둔 것. 붙여 넣을 때마다 조금씩 비켜 놓는다. 다른 설명판을 열어도 남아 있다. */
-const clipboard: { clip: Clip | null; pastes: number } = { clip: null, pastes: 0 };
-
-const STEP = Math.PI / 12;
+/** 마우스가 3D 작업판 위에 있는지(Tab으로 고르기는 작업판 위에서만) */
+export const pointer = { overStage: false };
 
 function typing(e: KeyboardEvent) {
   const t = e.target as HTMLElement | null;
-  return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+  return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
 }
 
-// 편집 단축키
-//  Ctrl+Z/Y 되돌리기·다시 하기, Ctrl+S 저장, Delete 지우기, Ctrl+C/X/V 복사·잘라내기·붙여넣기,
-//  Ctrl+D 바로 복제, Ctrl+G 묶기(Shift: 풀기), Q/E 돌리기, 방향키 10cm씩(안 골랐거나 Alt: 화면 옮기기),
-//  Esc 고르기 도구, PageUp/PageDown 장면 넘기기, Space 재생
+// 편집 단축키(윈도우·PPT에서 쓰던 것과 같게)
+//  Ctrl+Z/Y(Ctrl+Shift+Z) 되돌리기·다시 하기, Ctrl+S 저장, Ctrl+O 내 설명판, Ctrl+A 모두 선택,
+//  Ctrl+C/X/V 복사·잘라내기·붙여넣기, Ctrl+D 바로 복제, Delete 지우기, Ctrl+G 묶기(Shift: 풀기),
+//  Ctrl+M 새 장면, F2 이름 고치기, Tab/Shift+Tab 다음·이전 것 고르기(작업판 위), Q/E 돌리기, H/V 뒤집기,
+//  방향키 10cm씩(Shift: 격자 한 칸, 안 골랐거나 Alt: 화면 옮기기), Esc 고르기 도구,
+//  PageUp/PageDown 장면 넘기기, Home/End 첫·마지막 장면, Space 재생, F5 발표
 export function useShortcuts(onSave: () => void) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -40,6 +40,14 @@ export function useShortcuts(onSave: () => void) {
       const mod = e.ctrlKey || e.metaKey;
       const key = e.key.toLowerCase();
       if (st.presenting !== null) return; // 발표 화면이 키를 따로 받는다
+      if (st.menu) {
+        // 빠른 메뉴가 떠 있으면 Esc는 메뉴만 닫는다
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          st.setMenu(null);
+        }
+        return;
+      }
 
       // F5 처음부터 발표, Shift+F5 지금 장면부터(PPT와 같게)
       if (e.key === 'F5' && !mod) {
@@ -53,6 +61,12 @@ export function useShortcuts(onSave: () => void) {
         onSave();
         return;
       }
+      if (mod && key === 'o') {
+        e.preventDefault();
+        st.setLibOpen(true);
+        return;
+      }
+      if (st.libOpen) return; // 내 설명판 창이 떠 있는 동안은 편집하지 않는다
       if (st.playing) {
         if (e.key === 'Escape' || e.key === ' ') {
           e.preventDefault();
@@ -71,7 +85,11 @@ export function useShortcuts(onSave: () => void) {
         st.redo();
         return;
       }
-      if (typing(e)) return;
+      if (typing(e)) {
+        // 글자 칸에서 Esc를 누르면 칸에서 나와 다시 단축키를 쓸 수 있게
+        if (e.key === 'Escape') (e.target as HTMLElement).blur();
+        return;
+      }
 
       if (e.key === 'Escape') {
         st.setTool({ t: 'select' });
@@ -79,9 +97,34 @@ export function useShortcuts(onSave: () => void) {
         st.setScrubT(null);
         return;
       }
+      if (mod && key === 'a') {
+        e.preventDefault();
+        selectAll();
+        return;
+      }
+      if (mod && key === 'm') {
+        e.preventDefault();
+        newScene();
+        return;
+      }
+      if (e.key === 'F2') {
+        e.preventDefault();
+        focusRename();
+        return;
+      }
+      if (e.key === 'Tab' && !mod && pointer.overStage) {
+        e.preventDefault();
+        cycleSel(e.shiftKey ? -1 : 1);
+        return;
+      }
       if (e.key === 'PageDown' || e.key === 'PageUp') {
         e.preventDefault();
         st.setSceneIdx(st.sceneIdx + (e.key === 'PageDown' ? 1 : -1));
+        return;
+      }
+      if (e.key === 'Home' || e.key === 'End') {
+        e.preventDefault();
+        st.setSceneIdx(e.key === 'Home' ? 0 : st.activity.scenes.length - 1);
         return;
       }
       if (e.key === ' ') {
@@ -118,64 +161,44 @@ export function useShortcuts(onSave: () => void) {
       }
       if (mod && key === 'v') {
         e.preventDefault();
-        if (clipIsEmpty(clipboard.clip)) return;
-        clipboard.pastes += 1;
-        const g = st.grid;
-        const unit = g.snap ? g.size * Math.max(1, Math.ceil(0.6 / g.size)) : 0.6;
-        const res = pasteItems(st.activity, clipboard.clip!, unit * clipboard.pastes);
-        st.commit(res.activity);
-        st.setSel(res.ids);
+        paste();
         return;
       }
       if (!sel.length) return;
       if (mod && (key === 'c' || key === 'x')) {
         e.preventDefault();
-        clipboard.clip = copyItems(st.activity, st.sceneIdx, sel);
-        clipboard.pastes = key === 'x' ? -1 : 0; // 잘라 낸 것은 첫 붙여넣기를 제자리에
-        if (key === 'x') {
-          st.commit(removeItems(st.activity, st.sceneIdx, sel));
-          st.setSel([]);
-        }
+        copySel(key === 'x');
         return;
       }
       if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
-        st.commit(removeItems(st.activity, st.sceneIdx, sel));
-        st.setSel([]);
+        deleteSel();
         return;
       }
       if (mod && key === 'd') {
         e.preventDefault();
-        const res = duplicateItems(st.activity, sel);
-        st.commit(res.activity);
-        st.setSel(res.ids);
+        duplicateSel();
         return;
       }
       if (mod && key === 'g') {
         e.preventDefault();
-        st.commit(e.shiftKey ? ungroupItems(st.activity, sel) : groupItems(st.activity, sel));
+        groupSel(!e.shiftKey);
         return;
       }
-      if (!mod && (key === 'h' || key === 'v') && sel.length) {
-        st.commit(flipItems(st.activity, st.sceneIdx, sel, key === 'h' ? 'x' : 'z'));
+      if (mod) return;
+      if (key === 'h' || key === 'v') {
+        flipSel(key === 'h' ? 'x' : 'z');
         return;
       }
-      const objs = selectedObjIds(sel, st.activity);
-      if ((key === 'q' || key === 'e') && objs.length) {
-        st.commit(rotateObjects(st.activity, st.sceneIdx, objs, key === 'q' ? STEP : -STEP), 'rotate-key');
+      if (key === 'q' || key === 'e') {
+        rotateSel(key === 'q' ? 1 : -1);
         return;
       }
-      const nudge: Record<string, [number, number]> = {
-        ArrowLeft: [-0.1, 0],
-        ArrowRight: [0.1, 0],
-        ArrowUp: [0, -0.1],
-        ArrowDown: [0, 0.1],
-      };
-      const d = nudge[e.key];
-      if (d) {
+      const a = arrows[e.key];
+      if (a) {
         e.preventDefault();
-        const moving = sel.filter((id) => !isLocked(st.activity, id));
-        st.commit(moveItems(st.activity, st.sceneIdx, moving, d[0], d[1]), 'nudge');
+        const step = e.shiftKey ? st.grid.size : 0.1;
+        nudgeSel(a[0] * step, -a[1] * step);
       }
     };
     window.addEventListener('keydown', onKey);

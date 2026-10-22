@@ -303,6 +303,16 @@ button {
   gap: 4px;
 }
 
+/* 버튼이 많을 때 한 줄에 셋씩 */
+.seg.wrap {
+  flex-wrap: wrap;
+}
+
+.seg.wrap button {
+  flex: 1 0 30%;
+  padding: 8px 4px;
+}
+
 .seg button,
 .stack button,
 .rotate button {

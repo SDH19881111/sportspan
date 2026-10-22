@@ -1,4 +1,4 @@
-import type { ObjectKind } from './activity';
+import type { FieldKind, ObjectKind } from './activity';
 
 // 팔레트에 나오는 물건. 크기는 초등 체육 수업에서 쓰는 실제 장비 기준(m).
 export interface CatalogItem {
@@ -29,3 +29,16 @@ export const CATALOG_BY_KIND = Object.fromEntries(CATALOG.map((c) => [c.kind, c]
   ObjectKind,
   CatalogItem
 >;
+
+// 화면에 그릴 때만 키우는 배율. 실제 크기로 그리면 운동장(40×25m)에서 학생·콘이 점처럼 작고,
+// 공은 체육관에서도 잘 안 보인다. 자리·거리·움직임 계산은 그대로 실제 크기(m)를 쓴다.
+// 넓게 깔리는 것(훌라후프·조끼·골대·책상)은 키우면 서로 겹쳐 보여서 그대로 둔다.
+const AS_IS: ObjectKind[] = ['hoop', 'bib', 'goal', 'desk'];
+
+export function viewScale(kind: ObjectKind, field: FieldKind): number {
+  if (AS_IS.includes(kind)) return 1;
+  const wide = field === 'playground';
+  if (kind === 'kid') return wide ? 1.4 : 1;
+  if (kind === 'ball') return wide ? 2.2 : 1.6;
+  return wide ? 1.8 : 1;
+}

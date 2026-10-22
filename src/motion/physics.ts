@@ -13,8 +13,10 @@ export interface Profile {
 const still: Profile = { duration: 0, s: () => 0, v: () => 0 };
 
 // ── 학생 달리기: 출발할 때 빨라지고 도착할 때 느려진다(사다리꼴 속도) ──
-export const KID_VMAX = 3.0; // 초등학생이 설명용으로 뛰는 빠르기
-export const KID_ACC = 2.5;
+// 초등학생이 설명용으로 뛰는 빠르기. 3m/s로는 30m 달리기가 11초 넘게 걸려 발표가 늘어져서,
+// 실제 전력 질주(5~6m/s)보다는 느리게 4.5m/s로. 30m가 약 8초.
+export const KID_VMAX = 4.5;
+export const KID_ACC = 3.5;
 
 export function runProfile(dist: number, vmax = KID_VMAX, acc = KID_ACC): Profile {
   if (dist <= 0) return still;

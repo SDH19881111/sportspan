@@ -13,6 +13,8 @@ import {
   clamp,
   lerpAngle,
   rollProfile,
+  KID_ACC,
+  KID_VMAX,
   runProfile,
   throwFlight,
   topple,
@@ -74,7 +76,7 @@ export const SOUND_TIME: Record<SoundKind, number> = { whistle: 0.7, bell: 1.2, 
 
 export const SPEED: Record<'walk' | 'run', { vmax: number; acc: number }> = {
   walk: { vmax: 1.4, acc: 2 },
-  run: { vmax: 3.0, acc: 2.5 },
+  run: { vmax: KID_VMAX, acc: KID_ACC },
 };
 
 export const SPEEDS = [0.25, 0.5, 0.75, 1, 1.5, 2];

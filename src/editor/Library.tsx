@@ -7,9 +7,11 @@ import {
   deleteActivity,
   downloadFile,
   fromFile,
+  autoTitle,
   listActivities,
   loadActivity,
   saveActivity,
+  saveUnlessBlank,
   type ActivityMeta,
 } from '../storage/library';
 import { useEditor } from './store';
@@ -41,7 +43,7 @@ export function Library({ onClose, flush }: Props) {
   const open = (a: ReturnType<typeof emptyActivity>) => {
     flush();
     try {
-      saveActivity(a);
+      saveUnlessBlank(a); // 새 빈 판은 무엇이든 놓을 때 처음 저장된다
     } catch {
       setError('브라우저 저장 공간이 꽉 찼습니다. 안 쓰는 설명판을 지우거나 파일로 내보내 주세요.');
       return;
@@ -63,7 +65,7 @@ export function Library({ onClose, flush }: Props) {
         <div className="lib-new">
           <span>새로 만들기</span>
           {PLACES.map((p) => (
-            <button key={p.id} onClick={() => open(emptyActivity('새 활동', p.id))}>
+            <button key={p.id} onClick={() => open(emptyActivity(autoTitle(p.id), p.id))}>
               {p.name}
             </button>
           ))}
@@ -117,7 +119,7 @@ export function Library({ onClose, flush }: Props) {
                         if (m.id === current) {
                           const rest = listActivities();
                           const next = rest[0] && loadActivity(rest[0].id);
-                          load(next || emptyActivity());
+                          load(next || emptyActivity(autoTitle('gym')));
                         }
                         refresh();
                       }}

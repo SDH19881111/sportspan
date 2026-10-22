@@ -10,7 +10,7 @@ import { useShortcuts } from './editor/useShortcuts';
 import { setCaption } from './model/ops';
 import { coneSoccer } from './samples/coneSoccer';
 import { Stage, type CameraView } from './scene/Stage';
-import { copyOf, lastOpened, listActivities, loadActivity, saveActivity } from './storage/library';
+import { copyOf, lastOpened, listActivities, loadActivity, saveUnlessBlank } from './storage/library';
 
 const VIEWS: { id: CameraView; name: string }[] = [
   { id: 'top', name: '위에서' },
@@ -20,7 +20,7 @@ const VIEWS: { id: CameraView; name: string }[] = [
 
 const SAVE_DELAY = 800;
 
-type SaveState = { status: 'saved'; at: number } | { status: 'pending' } | { status: 'error' };
+type SaveState = { status: 'saved'; at: number } | { status: 'pending' } | { status: 'blank' } | { status: 'error' };
 
 /** 바뀔 때마다 잠깐 기다렸다가 자동 저장. flush()는 바로 저장. */
 function useAutosave() {
@@ -31,17 +31,18 @@ function useAutosave() {
     window.clearTimeout(timer.current);
     timer.current = undefined;
     try {
-      const meta = saveActivity(useEditor.getState().activity);
-      setState({ status: 'saved', at: meta.updatedAt });
+      const meta = saveUnlessBlank(useEditor.getState().activity);
+      setState(meta ? { status: 'saved', at: meta.updatedAt } : { status: 'blank' });
     } catch {
       setState({ status: 'error' });
     }
   }, []);
 
   useEffect(() => {
-    // 처음 열 때: 마지막에 쓰던 설명판, 없으면 견본
-    const id = lastOpened() ?? listActivities()[0]?.id;
-    const a = id ? loadActivity(id) : null;
+    // 처음 열 때: 마지막에 쓰던 설명판, 그게 없으면(빈 판이라 저장 안 됨 등) 가장 최근 것, 없으면 견본
+    const last = lastOpened();
+    const recent = listActivities()[0]?.id;
+    const a = (last ? loadActivity(last) : null) ?? (recent ? loadActivity(recent) : null);
     useEditor.getState().load(a ?? copyOf(coneSoccer, '콘 축구 (견본)'));
     flush();
 
@@ -115,6 +116,7 @@ export function App() {
         <span className={`save-state ${save.state.status}`} role="status">
           {save.state.status === 'saved' && `저장됨 ${formatTime(save.state.at)}`}
           {save.state.status === 'pending' && '저장 중…'}
+          {save.state.status === 'blank' && '빈 설명판은 무엇이든 놓으면 저장됩니다'}
           {save.state.status === 'error' && '저장 못 함: 브라우저 저장 공간을 확인하세요'}
         </span>
         <div className="history">

@@ -3,7 +3,7 @@ import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { Activity } from '../model/activity';
 import { colorOf } from '../model/activity';
-import { CATALOG_BY_KIND } from '../model/catalog';
+import { CATALOG_BY_KIND, viewScale } from '../model/catalog';
 import { addBubble, addMoves, expandGroups, isLocked, moveItems, moveVia, updateAnim } from '../model/ops';
 import { playSound } from '../audio/sfx';
 import { buildTimeline, type Timeline } from '../motion/timeline';
@@ -171,7 +171,7 @@ function AnimMarks({ activity, timeline, sel }: { activity: Activity; timeline: 
               <PathMark
                 points={points}
                 color={color}
-                radius={Math.max(0.15, CATALOG_BY_KIND[obj.kind].radius)}
+                radius={Math.max(0.15, CATALOG_BY_KIND[obj.kind].radius * viewScale(obj.kind, activity.field.kind))}
                 selected={chosen}
                 air={air}
                 onEndDown={(e) => onPathEndDown(an.id, e)}
@@ -187,7 +187,7 @@ function AnimMarks({ activity, timeline, sel }: { activity: Activity; timeline: 
             key={an.id}
             x={it.from.x + 0.35}
             z={it.from.z - 0.35}
-            y={CATALOG_BY_KIND[obj.kind].height + 0.1}
+            y={CATALOG_BY_KIND[obj.kind].height * viewScale(obj.kind, activity.field.kind) + 0.1}
             label={`${label} ${word}`}
             selected={chosen}
             onPointerDown={pick}
@@ -221,7 +221,7 @@ function SceneMarks(props: {
         const obj = activity.objects.find((o) => o.id === id);
         const st = timeline.at(id, t);
         if (!obj || !st || st.hidden) return null;
-        return <HighlightRing key={id} x={st.x} z={st.z} radius={CATALOG_BY_KIND[obj.kind].radius + 0.2} />;
+        return <HighlightRing key={id} x={st.x} z={st.z} radius={CATALOG_BY_KIND[obj.kind].radius * viewScale(obj.kind, activity.field.kind) + 0.2} />;
       })}
       {scene.arrows.filter((ar) => visible(ar.id)).map((ar) => (
         <ArrowMark
@@ -240,7 +240,7 @@ function SceneMarks(props: {
             key={b.id}
             x={st.x}
             z={st.z}
-            height={CATALOG_BY_KIND[obj.kind].height + st.y}
+            height={CATALOG_BY_KIND[obj.kind].height * viewScale(obj.kind, activity.field.kind) + st.y}
             text={b.text}
             selected={sel.includes(b.id)}
             onPointerDown={
@@ -364,9 +364,9 @@ function onItemDown(id: string, e: ThreeEvent<PointerEvent>) {
         if (Math.hypot(p[0] - from.x, p[1] - from.z) < 0.2) return;
         const res = addMoves(now.activity, now.sceneIdx, [id], { x: p[0], z: p[1] });
         now.commit(res.activity);
-        // 바닥을 눌러 만들 때처럼 고르기로 돌아간다. 켜 둔 채 남으면 다시 누른 버튼이 도구를 끄고,
-        // 이어서 끈 학생은 이동 대신 출발 자리가 옮겨진다.
-        now.setTool({ t: 'select' });
+        // 도구는 켜 둔 채로: 여러 학생의 이동을 이어서 그릴 수 있게(다 했으면 Esc·고르기).
+        // 켜져 있다는 것은 화면 위 안내와 눌린 도구 버튼으로 늘 보인다. 같은 학생을 다시 끌면
+        // 지난 이동이 끝난 자리에서 이어 간다.
         now.setSel(res.ids);
         now.setRightTab('anims');
       },

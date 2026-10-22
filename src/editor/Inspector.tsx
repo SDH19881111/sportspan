@@ -2,11 +2,13 @@ import { useEffect, useRef } from 'react';
 import type { Activity, AnimKind, AnimStart, FieldKind } from '../model/activity';
 import { FIELD_SIZES } from '../model/activity';
 import { CATALOG_BY_KIND } from '../model/catalog';
+import { COURTS, currentCourt, setCourt } from '../model/courts';
 import {
   addAnim,
   addBubble,
   addTeam,
   duplicateItems,
+  flipItems,
   groupItems,
   itemKind,
   lockedCount,
@@ -120,6 +122,20 @@ function ArrangePanel({ ids }: { ids: string[] }) {
         )}
         {oneGroup && <p className="note">묶음입니다. 하나를 누르면 묶음 전체가 골라집니다.</p>}
       </div>
+      <div className="seg">
+        <button
+          onClick={() => run((v) => flipItems(v, sceneIdx, ids, 'x'))}
+          title="고른 것들의 가운데를 기준으로 좌우를 바꿉니다. 보는 방향·이 장면의 이동 경로도 함께 (H)"
+        >
+          ↔ 좌우 뒤집기
+        </button>
+        <button
+          onClick={() => run((v) => flipItems(v, sceneIdx, ids, 'z'))}
+          title="고른 것들의 가운데를 기준으로 앞뒤를 바꿉니다 (V)"
+        >
+          ↕ 앞뒤 뒤집기
+        </button>
+      </div>
       <h3>편집</h3>
       <div className="stack">
         <button
@@ -161,6 +177,12 @@ function ActivityPanel() {
     { id: 'playground', name: '운동장' },
     { id: 'classroom', name: '교실' },
   ];
+  const court = currentCourt(a);
+  // 바닥 크기가 바뀌면 그어 둔 경기장 선도 새 크기에 맞춰 다시 긋는다
+  const refit = (v: Activity) => {
+    const c = currentCourt(v);
+    return c ? setCourt(v, c) : v;
+  };
   return (
     <>
       <h2>활동</h2>
@@ -177,7 +199,7 @@ function ActivityPanel() {
             onClick={() =>
               run((v) => {
                 const s = FIELD_SIZES[k.id];
-                return setFieldSize(setFieldKind(v, k.id), s.width, s.depth);
+                return refit(setFieldSize(setFieldKind(v, k.id), s.width, s.depth));
               })
             }
           >
@@ -190,15 +212,32 @@ function ActivityPanel() {
           id="field-w"
           label="가로(m)"
           value={a.field.width}
-          onChange={(w) => run((v) => setFieldSize(v, w, v.field.depth))}
+          onChange={(w) => run((v) => refit(setFieldSize(v, w, v.field.depth)))}
         />
         <NumberField
           id="field-d"
           label="세로(m)"
           value={a.field.depth}
-          onChange={(d) => run((v) => setFieldSize(v, v.field.width, d))}
+          onChange={(d) => run((v) => refit(setFieldSize(v, v.field.width, d)))}
         />
       </div>
+      <h3>경기장 선</h3>
+      <div className="seg wrap" role="group" aria-label="경기장 선">
+        <button className={court === null ? 'on' : ''} onClick={() => run((v) => setCourt(v, null))}>
+          없음
+        </button>
+        {COURTS.map((c) => (
+          <button
+            key={c.id}
+            className={court === c.id ? 'on' : ''}
+            title={`${c.hint}. 바닥 크기에 맞춰 긋습니다`}
+            onClick={() => run((v) => setCourt(v, c.id))}
+          >
+            {c.name}
+          </button>
+        ))}
+      </div>
+      {court && <p className="note">선은 고정되어 있어 학생을 놓고 끌 때 방해하지 않습니다.</p>}
       <h3>팀</h3>
       <ul className="teams">
         {a.teams.map((t) => (

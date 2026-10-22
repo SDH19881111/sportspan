@@ -3,7 +3,7 @@ import { useThree } from '@react-three/fiber';
 import type { ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
-import { addArrow, addLine, addMoves, addObject, addZone, expandGroups } from '../model/ops';
+import { addArrow, addLine, addMoves, addObject, addZone, expandGroups, faceCenter } from '../model/ops';
 import { useEditor } from './store';
 
 // 화면 좌표 → 바닥(y=0) 좌표. 캔버스 밖으로 끌어도 계속 계산되도록 window 이벤트로 끈다.
@@ -144,7 +144,7 @@ export function Interaction() {
       const { activity, id } = addObject(
         st.activity,
         { kind: t.kind, ...(t.teamId ? { teamId: t.teamId } : {}) },
-        { x: p[0], z: p[1], rot: 0 },
+        { x: p[0], z: p[1], rot: t.kind === 'kid' ? faceCenter(st.activity, p[0], p[1]) : 0 },
       );
       st.commit(activity);
       st.setSel([id]);

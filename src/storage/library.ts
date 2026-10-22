@@ -90,6 +90,41 @@ export function setLastOpened(id: string) {
   }
 }
 
+const PLACE_NAME: Record<Activity['field']['kind'], string> = { gym: '체육관', playground: '운동장', classroom: '교실' };
+const AUTO_TITLE = /^(?:(?:체육관|운동장|교실) 활동(?: \d+)?|새 활동)$/;
+
+/** 새로 만들 때의 이름: "운동장 활동 3"처럼 장소와, 목록에 없는 다음 번호 */
+export function autoTitle(place: Activity['field']['kind'], taken = listActivities().map((m) => m.title)): string {
+  const base = `${PLACE_NAME[place]} 활동`;
+  let n = 1;
+  while (taken.includes(`${base} ${n}`)) n++;
+  return `${base} ${n}`;
+}
+
+/**
+ * 아무것도 안 만든 판: 이름도 자동 이름 그대로이고 학생·장비·선·자막·애니메이션·설명이 하나도 없다.
+ * 실수로 "새로 만들기"를 눌러 생긴 판이 목록에 쌓이지 않도록 저장하지 않는다.
+ */
+export function isBlank(a: Activity): boolean {
+  const i = a.info;
+  return (
+    AUTO_TITLE.test(a.title.trim()) &&
+    a.objects.length === 0 &&
+    a.field.zones.length === 0 &&
+    a.field.lines.length === 0 &&
+    a.scenes.length === 1 &&
+    a.scenes.every((s) => !s.caption.trim() && s.anims.length === 0 && s.arrows.length === 0) &&
+    !i?.players && !i?.place && !i?.scoring && !i?.rules?.length && !i?.safety?.length && !i?.equipment?.length
+  );
+}
+
+/** 저장하되 빈 판이면 저장하지 않고, 전에 저장된 것이 있으면 목록에서 뺀다. 저장했으면 정보를, 아니면 null. */
+export function saveUnlessBlank(a: Activity): ActivityMeta | null {
+  if (!isBlank(a)) return saveActivity(a);
+  if (read<ActivityMeta[]>(INDEX, []).some((m) => m.id === a.id)) deleteActivity(a.id);
+  return null;
+}
+
 /** 다른 이름으로 하나 더: 새 id, 제목 뒤에 "사본" */
 export function copyOf(a: Activity, title = `${a.title} 사본`): Activity {
   return { ...structuredClone(a), id: newId('act'), title, updatedAt: undefined };

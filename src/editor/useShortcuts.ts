@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import {
+  flipItems,
   clipIsEmpty,
   copyItems,
   duplicateItems,
@@ -153,6 +154,10 @@ export function useShortcuts(onSave: () => void) {
       if (mod && key === 'g') {
         e.preventDefault();
         st.commit(e.shiftKey ? ungroupItems(st.activity, sel) : groupItems(st.activity, sel));
+        return;
+      }
+      if (!mod && (key === 'h' || key === 'v') && sel.length) {
+        st.commit(flipItems(st.activity, st.sceneIdx, sel, key === 'h' ? 'x' : 'z'));
         return;
       }
       const objs = selectedObjIds(sel, st.activity);

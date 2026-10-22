@@ -87,6 +87,62 @@ export function rotateObjects(a: Activity, sceneIdx: number, ids: string[], delt
   return setPoses(a, sceneIdx, poses);
 }
 
+/**
+ * 새로 놓는 학생이 처음 볼 방향: 경기장 가운데 쪽(긴 쪽을 따라).
+ * 왼쪽 편에 놓으면 →, 오른쪽 편이면 ←를 보아 두 팀이 마주 선다. 가운데 줄 위면 세로로 가운데를 본다.
+ */
+export function faceCenter(a: Activity, x: number, z: number): number {
+  const wide = a.field.width >= a.field.depth;
+  const [along, across] = wide ? [x, z] : [z, x];
+  const NEAR = 0.25;
+  if (Math.abs(along) > NEAR) return wide ? (along < 0 ? Math.PI / 2 : -Math.PI / 2) : along < 0 ? 0 : Math.PI;
+  if (Math.abs(across) > NEAR) return wide ? (across < 0 ? 0 : Math.PI) : across < 0 ? Math.PI / 2 : -Math.PI / 2;
+  return 0;
+}
+
+/**
+ * 좌우(x) 또는 앞뒤(z) 뒤집기: 고른 것들 한가운데를 기준으로 거울처럼 자리를 바꾸고 보는 방향도 뒤집는다.
+ * 물건·화살표는 지금 장면에서만, 구역·선은 경기장 자체. 뒤집힌 물건의 이 장면 이동 경로도 함께 뒤집는다.
+ */
+export function flipItems(a: Activity, sceneIdx: number, ids: string[], axis: 'x' | 'z'): Activity {
+  const next = clone(a);
+  const scene = next.scenes[sceneIdx];
+  const objIds = ids.filter((id) => scene.poses[id] && next.objects.some((o) => o.id === id));
+  const zones = next.field.zones.filter((v) => ids.includes(v.id));
+  const lines = [...next.field.lines, ...scene.arrows].filter((v) => ids.includes(v.id));
+
+  // 기준: 고른 것 모두를 감싸는 사각형의 가운데
+  const vals: number[] = [];
+  for (const id of objIds) vals.push(scene.poses[id][axis]);
+  for (const v of zones) {
+    const [c, half] = axis === 'x' ? [v.x, v.w / 2] : [v.z, v.d / 2];
+    vals.push(c - half, c + half);
+  }
+  for (const v of lines) vals.push(...(axis === 'x' ? [v.x1, v.x2] : [v.z1, v.z2]));
+  if (!vals.length) return a;
+  const mid = (Math.min(...vals) + Math.max(...vals)) / 2;
+  const m = (v: number) => round(2 * mid - v);
+
+  for (const id of objIds) {
+    const p = scene.poses[id];
+    p[axis] = m(p[axis]);
+    // 앞쪽이 +z, 방향 = atan2(dx, dz): 좌우면 -rot, 앞뒤면 π - rot
+    p.rot = normAngle(axis === 'x' ? -p.rot : Math.PI - p.rot);
+    [p.x, p.z] = clampToField(next, p.x, p.z);
+  }
+  for (const an of scene.anims) {
+    if (an.kind !== 'move' || !an.objId || !objIds.includes(an.objId)) continue;
+    if (an.to) an.to = { ...an.to, [axis]: m(an.to[axis]) };
+    if (an.via) an.via = an.via.map((v) => ({ ...v, [axis]: m(v[axis]) }));
+  }
+  for (const v of zones) v[axis] = m(v[axis]);
+  for (const v of lines) {
+    if (axis === 'x') [v.x1, v.x2] = [m(v.x1), m(v.x2)];
+    else [v.z1, v.z2] = [m(v.z1), m(v.z2)];
+  }
+  return next;
+}
+
 export function normAngle(r: number): number {
   const t = Math.PI * 2;
   let v = ((r % t) + t) % t;

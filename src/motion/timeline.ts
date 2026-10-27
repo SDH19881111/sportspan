@@ -8,8 +8,10 @@
 import type { Activity, Anim, BoardObject, MoveStyle, Pose, SoundKind } from '../model/activity';
 import { CATALOG_BY_KIND } from '../model/catalog';
 import {
+  arcFlight,
   BALL_R,
   bounceFlight,
+  HAND_H,
   clamp,
   lerpAngle,
   rollProfile,
@@ -149,14 +151,47 @@ export function polyline(points: { x: number; z: number }[]): Polyline {
   return { length, pointAt, headingAt };
 }
 
+/**
+ * 던지기·튕기기: 꺾는 점마다 구간을 나눠 따로 날아간다.
+ * 던짐은 꺾는 점에서 손 높이로 받아 곧바로 다시 던지고(패스 잇기),
+ * 튀김은 꺾는 점에서 바닥에 한 번 튀어 방향을 바꾼 뒤, 마지막 구간에서 잦아들며 멈춘다.
+ */
+function chainFlight(points: { x: number; z: number }[], isThrow: boolean) {
+  const mid = isThrow ? HAND_H : BALL_R; // 꺾는 점에서의 공 높이
+  const segs: { a: { x: number; z: number }; b: { x: number; z: number }; start: number; fl: Flight }[] = [];
+  let t0 = 0;
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1];
+    const b = points[i];
+    const d = Math.hypot(b.x - a.x, b.z - a.z);
+    if (d < 1e-6) continue;
+    const h0 = segs.length ? mid : HAND_H;
+    const last = i === points.length - 1;
+    const fl = !last ? arcFlight(d, h0, mid) : isThrow ? throwFlight(d, h0) : bounceFlight(d, 0.55, 2, h0);
+    segs.push({ a, b, start: t0, fl });
+    t0 += fl.duration;
+  }
+  const end = points[points.length - 1];
+  return {
+    duration: t0,
+    path: (t: number) => {
+      const sg = segs.find((s) => t < s.start + s.fl.duration) ?? segs[segs.length - 1];
+      if (!sg) return { ...end, y: BALL_R };
+      const u = t - sg.start;
+      const k = sg.fl.f(u);
+      return { x: sg.a.x + (sg.b.x - sg.a.x) * k, z: sg.a.z + (sg.b.z - sg.a.z) * k, y: sg.fl.y(u) };
+    },
+  };
+}
+
 type Built = Required<Pick<TimedAnim, 'duration' | 'at' | 'end'>> & Pick<TimedAnim, 'path' | 'heading'>;
 
 function buildMove(obj: BoardObject, from: ItemState, anim: Anim): Built {
   const to = anim.to ?? { x: from.x, z: from.z };
   const style = anim.style ?? defaultStyle(obj);
   const flying = obj.kind === 'ball' && (style === 'throw' || style === 'bounce');
-  // 던지기·튕기기는 곧게 날아가므로 꺾는 점을 쓰지 않는다
-  const line = polyline([{ x: from.x, z: from.z }, ...(flying ? [] : anim.via ?? []), to]);
+  const points = [{ x: from.x, z: from.z }, ...(anim.via ?? []), to];
+  const line = polyline(points);
   const dist = line.length;
   const heading = dist > 1e-6 ? line.headingAt(0) : from.rot;
 
@@ -164,9 +199,9 @@ function buildMove(obj: BoardObject, from: ItemState, anim: Anim): Built {
     let path: (t: number) => { x: number; y: number; z: number };
     let duration: number;
     if (flying) {
-      const fl: Flight = style === 'throw' ? throwFlight(dist) : bounceFlight(dist);
+      const fl = chainFlight(points, style === 'throw');
       duration = fl.duration;
-      path = (t) => ({ ...line.pointAt(fl.f(t) * dist), y: fl.y(t) });
+      path = fl.path;
     } else {
       const prof = rollProfile(dist);
       duration = prof.duration;

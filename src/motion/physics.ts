@@ -92,22 +92,27 @@ export function throwApex(dist: number, h0 = HAND_H): number {
   return Math.min(6, Math.max(h0 + 0.6, h0 + dist * 0.25));
 }
 
-/** 손 높이 h0에서 던져 바닥(공 반지름 높이)에 떨어지는 포물선 */
-export function throwFlight(dist: number, h0 = HAND_H): Flight {
-  if (dist <= 0) return { duration: 0, f: () => 1, y: () => BALL_R };
+/** 높이 h0에서 떠나 높이 h1(h0 이하)에 닿는 포물선. 꺾는 점이 있는 던지기·튕기기의 한 구간 */
+export function arcFlight(dist: number, h0 = HAND_H, h1 = BALL_R): Flight {
+  if (dist <= 0) return { duration: 0, f: () => 1, y: () => h1 };
   const H = throwApex(dist, h0);
   const vy0 = Math.sqrt(2 * G * (H - h0));
   const tUp = vy0 / G;
-  const tDown = Math.sqrt((2 * (H - BALL_R)) / G);
+  const tDown = Math.sqrt((2 * (H - h1)) / G);
   const T = tUp + tDown;
   return {
     duration: T,
     f: (t) => clamp(t, 0, T) / T,
     y: (t) => {
       const c = clamp(t, 0, T);
-      return Math.max(BALL_R, h0 + vy0 * c - 0.5 * G * c * c);
+      return Math.max(Math.min(h0, h1), h0 + vy0 * c - 0.5 * G * c * c);
     },
   };
+}
+
+/** 손 높이 h0에서 던져 바닥(공 반지름 높이)에 떨어지는 포물선 */
+export function throwFlight(dist: number, h0 = HAND_H): Flight {
+  return arcFlight(dist, h0, BALL_R);
 }
 
 /** 던진 뒤 바닥에서 반발 계수 e로 몇 번 튀고 목표 지점에 멈춘다. */

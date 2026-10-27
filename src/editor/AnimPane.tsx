@@ -488,24 +488,26 @@ function AnimDetail(props: {
               </button>
             ))}
           </div>
-          {!flying && (
-            <>
-              <span className="field-label">꺾는 점</span>
-              <div className="seg">
-                <button
-                  onClick={() => item?.from && onChange(addVia(activity, sceneIdx, anim.id, item.from))}
-                  title="가장 긴 구간 가운데에 꺾는 점을 넣습니다. 화면의 흰 점을 끌어 옮기세요"
-                >
-                  ＋ 꺾는 점
-                </button>
-                {anim.via?.length ? (
-                  <button onClick={() => onChange(removeVia(activity, sceneIdx, anim.id))}>
-                    모두 지우기({anim.via.length})
-                  </button>
-                ) : null}
-              </div>
-            </>
-          )}
+          <span className="field-label">꺾는 점</span>
+          <div className="seg">
+            <button
+              onClick={() => item?.from && onChange(addVia(activity, sceneIdx, anim.id, item.from))}
+              title={
+                (flying
+                  ? style === 'throw'
+                    ? '꺾는 점에서 받아 곧바로 다시 던집니다(패스 잇기). '
+                    : '꺾는 점에서 바닥에 튀어 방향을 바꿉니다. '
+                  : '') + '가장 긴 구간 가운데에 꺾는 점을 넣습니다. 화면의 흰 점을 끌어 옮기세요'
+              }
+            >
+              ＋ 꺾는 점
+            </button>
+            {anim.via?.length ? (
+              <button onClick={() => onChange(removeVia(activity, sceneIdx, anim.id))}>
+                모두 지우기({anim.via.length})
+              </button>
+            ) : null}
+          </div>
           {obj.kind === 'kid' && balls.length > 0 && (
             <>
               <label className="field">

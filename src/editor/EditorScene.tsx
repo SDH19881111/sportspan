@@ -163,9 +163,10 @@ function AnimMarks({ activity, timeline, sel }: { activity: Activity; timeline: 
 
         if (an.kind === 'move') {
           const flying = obj.kind === 'ball' && (an.style === 'throw' || an.style === 'bounce');
-          const points = [{ x: it.from.x, z: it.from.z }, ...(flying ? [] : an.via ?? []), { x: it.end.x, z: it.end.z }];
+          const points = [{ x: it.from.x, z: it.from.z }, ...(an.via ?? []), { x: it.end.x, z: it.end.z }];
+          const n = 12 * (points.length - 1); // 구간마다 점 12개
           const air =
-            flying && it.path ? Array.from({ length: 13 }, (_, i) => it.path!((it.duration * i) / 12)) : undefined;
+            flying && it.path ? Array.from({ length: n + 1 }, (_, i) => it.path!((it.duration * i) / n)) : undefined;
           const carry = an.carry ? ' +공' : '';
           return (
             <group key={an.id}>

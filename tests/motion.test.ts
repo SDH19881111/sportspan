@@ -154,6 +154,31 @@ describe('장면 안 애니메이션 시간표', () => {
     expect(tl.at(kid, tl.duration)!.hidden).toBe(true);
   });
 
+  it('던짐·튀김도 꺾는 점을 지나간다: 던짐은 손 높이로 받고, 튀김은 바닥에 튄다', () => {
+    let { a, ball } = setup();
+    const via = [{ x: 0, z: 4 }];
+    const at = (style: 'throw' | 'bounce') => {
+      const tl = buildTimeline(add(a, { objId: ball, kind: 'move', start: 'click', delay: 0, to: { x: 4, z: 0 }, via, style }), 0);
+      const it = tl.items[0];
+      // 꺾는 점에 가장 가까이 가는 순간
+      let best = { d: Infinity, y: 0 };
+      for (let i = 0; i <= 600; i++) {
+        const q = it.path!((it.duration * i) / 600);
+        const d = Math.hypot(q.x - via[0].x, q.z - via[0].z);
+        if (d < best.d) best = { d, y: q.y };
+      }
+      return { best, end: tl.at(ball, tl.duration)! };
+    };
+    const th = at('throw');
+    expect(th.best.d).toBeLessThan(0.05);
+    expect(th.best.y).toBeCloseTo(HAND_H, 1);
+    expect(th.end).toMatchObject({ x: 4, z: 0, y: 0 });
+    const bo = at('bounce');
+    expect(bo.best.d).toBeLessThan(0.05);
+    expect(bo.best.y).toBeCloseTo(BALL_R, 1);
+    expect(bo.end).toMatchObject({ x: 4, z: 0, y: 0 });
+  });
+
   it('같은 장면은 몇 번을 계산해도 똑같다', () => {
     let { a, ball } = setup();
     a = add(a, { objId: ball, kind: 'move', start: 'click', delay: 0, to: { x: 6, z: 2 }, style: 'bounce' });

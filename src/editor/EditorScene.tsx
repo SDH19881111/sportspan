@@ -8,7 +8,7 @@ import { addBubble, addMoves, expandGroups, isLocked, moveItems, moveVia, update
 import { playSound } from '../audio/sfx';
 import { buildTimeline, type Timeline } from '../motion/timeline';
 import { BoardItem } from '../scene/BoardItem';
-import { Field } from '../scene/Field';
+import { Field, ZoneMesh } from '../scene/Field';
 import { AnimBadge, ArrowMark, BubbleTag, HighlightRing, PathMark } from '../scene/Marks';
 import { gridSnap, Interaction, snapPoint, startDrag } from './Interaction';
 import { noteRightPress } from './ContextMenu';
@@ -314,15 +314,15 @@ export function ShowScene(props: { activity: Activity; sceneIdx: number; timelin
 
 function DraftShape({ t, x1, z1, x2, z2 }: { t: 'zone' | 'line'; x1: number; z1: number; x2: number; z2: number }) {
   const zoneColor = useEditor((s) => s.zoneColor);
+  const zoneShape = useEditor((s) => s.zoneShape);
   const lineColor = useEditor((s) => s.lineColor);
   if (t === 'zone') {
-    const w = Math.abs(x2 - x1);
-    const d = Math.abs(z2 - z1);
     return (
-      <mesh position={[(x1 + x2) / 2, 0.03, (z1 + z2) / 2]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[Math.max(w, 0.01), Math.max(d, 0.01)]} />
-        <meshBasicMaterial color={zoneColor} transparent opacity={0.6} />
-      </mesh>
+      <group position={[(x1 + x2) / 2, 0.03, (z1 + z2) / 2]}>
+        <ZoneMesh shape={zoneShape} w={Math.abs(x2 - x1)} d={Math.abs(z2 - z1)}>
+          <meshBasicMaterial color={zoneColor} transparent opacity={0.6} />
+        </ZoneMesh>
+      </group>
     );
   }
   const len = Math.hypot(x2 - x1, z2 - z1);

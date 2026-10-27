@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { Activity, ObjectKind } from '../model/activity';
 import { itemKind, type MoveMode } from '../model/ops';
+import type { ZoneShape } from '../model/shapes';
 import { coneSoccer } from '../samples/coneSoccer';
 
 export type Tool =
@@ -85,6 +86,8 @@ interface EditorState {
   draft: Draft | null;
   dragging: boolean;
   zoneColor: string;
+  /** 구역 도구로 그릴 모양 */
+  zoneShape: ZoneShape;
   lineColor: string;
   past: Activity[];
   future: Activity[];
@@ -133,6 +136,7 @@ interface EditorState {
   setDraft: (draft: Draft | null) => void;
   setDragging: (v: boolean) => void;
   setZoneColor: (c: string) => void;
+  setZoneShape: (s: ZoneShape) => void;
   setLineColor: (c: string) => void;
   load: (a: Activity) => void;
   setSceneIdx: (idx: number) => void;
@@ -151,6 +155,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   draft: null,
   dragging: false,
   zoneColor: '#3f6fc4',
+  zoneShape: 'rect',
   lineColor: '#ffffff',
   past: [],
   future: [],
@@ -260,6 +265,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   setDraft: (draft) => set({ draft }),
   setDragging: (dragging) => set({ dragging }),
   setZoneColor: (zoneColor) => set({ zoneColor }),
+  setZoneShape: (zoneShape) => set({ zoneShape }),
   setLineColor: (lineColor) => set({ lineColor }),
   load: (a) =>
     set({ activity: a, sceneIdx: 0, sel: [], past: [], future: [], tool: { t: 'select' }, draft: null, playing: null }),

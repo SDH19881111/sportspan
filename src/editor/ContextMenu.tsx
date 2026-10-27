@@ -150,7 +150,7 @@ export function ContextMenu() {
     if (arrange.length) groupsOf.push(arrange);
     if (anyUnlocked) {
       const turn: Item[] = [];
-      if (objs.some((o) => !o.locked)) {
+      if (objs.some((o) => !o.locked) || activity.field.zones.some((z) => sel.includes(z.id) && !z.locked)) {
         turn.push({ label: '왼쪽으로 15° 돌리기', keys: 'Q', run: () => rotateSel(1) });
         turn.push({ label: '오른쪽으로 15° 돌리기', keys: 'E', run: () => rotateSel(-1) });
       }

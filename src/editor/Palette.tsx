@@ -1,5 +1,6 @@
 import type { ObjectKind } from '../model/activity';
 import { CATALOG } from '../model/catalog';
+import { ZONE_SHAPES, zoneOutline, type ZoneShape } from '../model/shapes';
 import { useEditor, type Tool } from './store';
 
 // 왼쪽 도구 모음: 고르기, 학생(팀별), 장비, 그리기.
@@ -8,7 +9,7 @@ const EQUIPMENT = CATALOG.filter((c) => c.kind !== 'kid');
 
 const DRAW: { t: 'zone' | 'line' | 'arrow' | 'bubble' | 'path'; name: string; hint: string }[] = [
   { t: 'path', name: '이동 경로', hint: '학생이나 공을 눌러 도착할 곳까지 끌면 이동 애니메이션이 생깁니다' },
-  { t: 'zone', name: '구역', hint: '바닥을 끌어 색 구역을 그립니다' },
+  { t: 'zone', name: '구역', hint: '바닥을 끌어 색 구역을 그립니다. 네모·원·반원·세모·마름모·트랙형·고리 중에서 고릅니다' },
   { t: 'line', name: '선', hint: '바닥을 끌어 경계선을 긋습니다' },
   { t: 'arrow', name: '화살표', hint: '바닥을 끌어 움직일 길을 표시합니다' },
   { t: 'bubble', name: '말풍선', hint: '학생이나 장비를 누르면 말풍선이 붙습니다' },
@@ -79,6 +80,7 @@ export function Palette() {
         <div className="grid2">
           {DRAW.map((d) => btn({ t: d.t }, <><Glyph kind={d.t} />{d.name}</>, d.hint, d.t))}
         </div>
+        {tool.t === 'zone' && <ShapePicker />}
       </section>
       <section>
         <h2>맞추기</h2>
@@ -115,6 +117,41 @@ export function Palette() {
   );
 }
 
+/** 구역 도구를 켜면 나오는 모양 고르기 */
+function ShapePicker() {
+  const shape = useEditor((s) => s.zoneShape);
+  const setShape = useEditor((s) => s.setZoneShape);
+  return (
+    <div className="shape-pick" role="group" aria-label="구역 모양">
+      {ZONE_SHAPES.map((z) => (
+        <button
+          key={z.id}
+          className={shape === z.id ? 'on' : ''}
+          aria-pressed={shape === z.id}
+          title={z.hint}
+          onClick={() => setShape(z.id)}
+        >
+          <ShapeIcon shape={z.id} />
+          {z.name}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** 모양 단추의 작은 그림: 실제 윤곽(model/shapes.ts)을 그대로 줄여 그린다 */
+export function ShapeIcon({ shape }: { shape: ZoneShape }) {
+  const w = shape === 'stadium' ? 16 : 14;
+  const d = shape === 'stadium' || shape === 'semicircle' ? 8 : 12;
+  const { outer, hole } = zoneOutline(shape, w, d);
+  const path = (pts: [number, number][]) => `M${pts.map(([x, z]) => `${x.toFixed(2)},${(-z).toFixed(2)}`).join('L')}Z`;
+  return (
+    <svg width={18} height={18} viewBox="-9 -9 18 18" aria-hidden>
+      <path d={path(outer) + (hole ? path(hole) : '')} fill="#3f6fc4" fillRule="evenodd" opacity={0.85} />
+    </svg>
+  );
+}
+
 /** 3D 화면 위쪽에 띄우는 짧은 안내. 고르기일 때는 손에 익히기 어려운 조작만 한 줄로. */
 export function ToolHint() {
   const tool = useEditor((s) => s.tool);
@@ -143,7 +180,7 @@ export function tipFor(tool: Tool) {
     case 'place':
       return '바닥을 누를 때마다 하나씩 놓입니다. 다 놓았으면 Esc.';
     case 'zone':
-      return '바닥을 대각선으로 끌어 구역을 그립니다.';
+      return '바닥을 대각선으로 끌어 구역을 그립니다. Shift를 누른 채 끌면 정원·정사각형. 모양은 왼쪽 도구 아래에서 고릅니다.';
     case 'line':
       return '바닥을 끌어 선을 긋습니다.';
     case 'arrow':

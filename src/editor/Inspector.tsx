@@ -3,6 +3,8 @@ import type { Activity, AnimKind, AnimStart, FieldKind } from '../model/activity
 import { FIELD_SIZES } from '../model/activity';
 import { CATALOG_BY_KIND } from '../model/catalog';
 import { COURTS, currentCourt, setCourt } from '../model/courts';
+import { ZONE_SHAPES } from '../model/shapes';
+import { ShapeIcon } from './Palette';
 import {
   addAnim,
   addBubble,
@@ -21,6 +23,7 @@ import {
   type ItemKind,
   removeTeam,
   rotateObjects,
+  rotateZones,
   setFieldKind,
   setFieldSize,
   setPoses,
@@ -466,6 +469,7 @@ function ObjectPanel({ ids }: { ids: string[] }) {
 function ZonePanel({ id }: { id: string }) {
   const zone = useEditor((s) => s.activity.field.zones.find((z) => z.id === id));
   const setZoneColor = useEditor((s) => s.setZoneColor);
+  const setZoneShape = useEditor((s) => s.setZoneShape);
   const setSel = useEditor((s) => s.setSel);
   const run = useCommit();
   if (!zone) return null;
@@ -495,6 +499,34 @@ function ZonePanel({ id }: { id: string }) {
             }}
           />
         ))}
+      </div>
+      <h3>모양</h3>
+      <div className="shape-pick" role="group" aria-label="구역 모양">
+        {ZONE_SHAPES.map((z) => (
+          <button
+            key={z.id}
+            className={(zone.shape ?? 'rect') === z.id ? 'on' : ''}
+            aria-pressed={(zone.shape ?? 'rect') === z.id}
+            title={z.hint}
+            onClick={() => {
+              setZoneShape(z.id); // 다음에 그릴 구역도 이 모양으로
+              run((v) => updateZone(v, id, { shape: z.id === 'rect' ? undefined : z.id }));
+            }}
+          >
+            <ShapeIcon shape={z.id} />
+            {z.name}
+          </button>
+        ))}
+      </div>
+      <h3>방향</h3>
+      <div className="rotate">
+        <button disabled={zone.locked} onClick={() => run((v) => rotateZones(v, [id], STEP))} title="왼쪽으로 15° (Q)">
+          ↺ 15°
+        </button>
+        <span className="deg">{Math.round(((zone.rot ?? 0) * 180) / Math.PI)}°</span>
+        <button disabled={zone.locked} onClick={() => run((v) => rotateZones(v, [id], -STEP))} title="오른쪽으로 15° (E)">
+          15° ↻
+        </button>
       </div>
       <div className="row2">
         <NumberField id="zone-w" label="가로(m)" value={zone.w} onChange={(w) => run((v) => updateZone(v, id, { w }))} />

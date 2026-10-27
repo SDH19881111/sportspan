@@ -21,12 +21,26 @@ export const floorApi = {
 const fine = (v: number) => Math.round(v * 20) / 20;
 const CLICK_PX = 6;
 
-// Alt를 누르고 있는 동안은 자석을 잠깐 끈다(격자 사이에 놓고 싶을 때)
+// Alt를 누르고 있는 동안은 자석을 잠깐 끈다(격자 사이에 놓고 싶을 때).
+// Shift를 누르고 구역을 그리면 가로·세로가 같게(정원·정사각형).
 let altDown = false;
+let shiftDown = false;
 if (typeof window !== 'undefined') {
-  window.addEventListener('keydown', (e) => (altDown = e.altKey));
-  window.addEventListener('keyup', (e) => (altDown = e.altKey));
-  window.addEventListener('blur', () => (altDown = false));
+  const keys = (e: KeyboardEvent | PointerEvent) => {
+    altDown = e.altKey;
+    shiftDown = e.shiftKey;
+  };
+  window.addEventListener('keydown', keys);
+  window.addEventListener('keyup', keys);
+  window.addEventListener('pointermove', keys);
+  window.addEventListener('blur', () => (altDown = shiftDown = false));
+}
+
+/** 구역 그리기: Shift면 짧은 쪽을 긴 쪽에 맞춰 정사각 상자로(누른 점에서 끄는 방향으로) */
+function squareUp(x1: number, z1: number, x2: number, z2: number): [number, number] {
+  if (!shiftDown) return [x2, z2];
+  const side = Math.max(Math.abs(x2 - x1), Math.abs(z2 - z1));
+  return [x1 + Math.sign(x2 - x1 || 1) * side, z1 + Math.sign(z2 - z1 || 1) * side];
 }
 
 /** 자석이 켜져 있으면 격자 칸에 맞춘다 */
@@ -181,7 +195,8 @@ export function Interaction() {
         native,
         (p, s) => {
           const [x1, z1] = snapPoint(s);
-          const [x2, z2] = snapPoint(p);
+          let [x2, z2] = snapPoint(p);
+          if (kind === 'zone') [x2, z2] = squareUp(x1, z1, x2, z2);
           useEditor.getState().setDraft({ t: kind, x1, z1, x2, z2 });
         },
         (moved) => {
@@ -199,6 +214,7 @@ export function Interaction() {
               w: Math.abs(d.x2 - d.x1),
               d: Math.abs(d.z2 - d.z1),
               color: cur.zoneColor,
+              ...(cur.zoneShape !== 'rect' ? { shape: cur.zoneShape } : {}),
             });
           } else if (kind === 'line') {
             res = addLine(cur.activity, { ...pick(d), color: cur.lineColor });

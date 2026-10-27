@@ -2,6 +2,8 @@
 // 장면은 모든 물건의 자리를 통째로 갖는다(PPT에서 슬라이드를 복제해 말을 옮기던 방식).
 // 길이 단위는 모두 m, 각도는 라디안. 바닥은 x(가로)·z(세로) 평면이고 가운데가 원점.
 
+import type { ZoneShape } from './shapes';
+
 export type FieldKind = 'gym' | 'playground' | 'classroom';
 
 export type ObjectKind =
@@ -38,6 +40,10 @@ export interface FieldZone extends Arrangeable {
   d: number;
   color: string;
   label?: string;
+  /** 모양(없으면 네모). 모양은 w×d 상자 안에 꼭 맞게 그린다 → model/shapes.ts */
+  shape?: ZoneShape;
+  /** 상자 가운데를 축으로 돈 각도(라디안, 없으면 0). 앞쪽은 +z */
+  rot?: number;
 }
 
 export interface FieldLine extends Arrangeable {

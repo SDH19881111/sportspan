@@ -13,6 +13,7 @@ import type {
 import { newId } from './activity';
 import { buildTimeline } from '../motion/timeline';
 import { CATALOG_BY_KIND } from './catalog';
+import { ASYMMETRIC } from './shapes';
 
 function clone(a: Activity): Activity {
   return structuredClone(a);
@@ -135,7 +136,15 @@ export function flipItems(a: Activity, sceneIdx: number, ids: string[], axis: 'x
     if (an.to) an.to = { ...an.to, [axis]: m(an.to[axis]) };
     if (an.via) an.via = an.via.map((v) => ({ ...v, [axis]: m(v[axis]) }));
   }
-  for (const v of zones) v[axis] = m(v[axis]);
+  for (const v of zones) {
+    v[axis] = m(v[axis]);
+    // 방향이 있는 모양(반원·세모)이나 돌려 둔 구역은 보는 방향도 거울처럼
+    if (v.rot !== undefined || (v.shape && ASYMMETRIC.includes(v.shape))) {
+      const r = normAngle(axis === 'x' ? -(v.rot ?? 0) : Math.PI - (v.rot ?? 0));
+      if (r === 0) delete v.rot;
+      else v.rot = r;
+    }
+  }
   for (const v of lines) {
     if (axis === 'x') [v.x1, v.x2] = [m(v.x1), m(v.x2)];
     else [v.z1, v.z2] = [m(v.z1), m(v.z2)];
@@ -214,6 +223,21 @@ export function updateLine(a: Activity, id: string, patch: Partial<Omit<FieldLin
   const next = clone(a);
   const l = next.field.lines.find((v) => v.id === id);
   if (l) Object.assign(l, patch);
+  return next;
+}
+
+/** 구역을 가운데를 축으로 돌린다(모든 장면). 네모·원처럼 0°면 rot을 남기지 않는다. */
+export function rotateZones(a: Activity, ids: string[], delta: number): Activity {
+  const next = clone(a);
+  for (const z of next.field.zones) {
+    if (!ids.includes(z.id)) continue;
+    let r = normAngle((z.rot ?? 0) + delta);
+    // 15°씩 여러 번 돌려도 소수 오차가 쌓이지 않게 15° 눈금에 붙인다
+    const k = r / (Math.PI / 12);
+    if (Math.abs(k - Math.round(k)) < 1e-3) r = normAngle(Math.round(k) * (Math.PI / 12));
+    if (Math.abs(r) < 1e-6) delete z.rot;
+    else z.rot = r;
+  }
   return next;
 }
 

@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Html } from '@react-three/drei';
 import type { ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { Field as FieldData, FieldKind } from '../model/activity';
+import { zoneOutline, type ZoneShape } from '../model/shapes';
 
 const FLOOR: Record<FieldKind, { floor: string; around: string; line: string }> = {
   gym: { floor: '#d8b27e', around: '#8f8576', line: '#ffffff' },
@@ -71,15 +72,17 @@ export function Field({ field, selectedIds = [], onItemDown }: FieldProps) {
 
       {field.zones.map((zone, i) => (
         <group key={zone.id} position={[zone.x, 0.004 + i * 0.0005, zone.z]}>
-          <mesh
-            rotation={[-Math.PI / 2, 0, 0]}
-            receiveShadow
-            onPointerDown={onItemDown && ((e) => onItemDown(zone.id, e))}
-          >
-            <planeGeometry args={[zone.w, zone.d]} />
-            <meshStandardMaterial color={zone.color} transparent opacity={0.78} roughness={1} />
-          </mesh>
-          {selectedIds.includes(zone.id) && <Outline w={zone.w} d={zone.d} />}
+          <group rotation={[0, zone.rot ?? 0, 0]}>
+            <ZoneMesh
+              shape={zone.shape ?? 'rect'}
+              w={zone.w}
+              d={zone.d}
+              onPointerDown={onItemDown && ((e) => onItemDown(zone.id, e))}
+            >
+              <meshStandardMaterial color={zone.color} transparent opacity={0.78} roughness={1} />
+            </ZoneMesh>
+            {selectedIds.includes(zone.id) && <Outline shape={zone.shape ?? 'rect'} w={zone.w} d={zone.d} />}
+          </group>
           {zone.label && <FloorLabel text={zone.label} />}
         </group>
       ))}
@@ -140,15 +143,54 @@ export function Strip({ x1, z1, x2, z2, color, y, width = 0.06, hitOnly, onPoint
   );
 }
 
-function Outline({ w, d }: { w: number; d: number }) {
+/**
+ * 구역 모양 판(바닥에 눕힌 것). 윤곽은 model/shapes.ts.
+ * Shape는 x·y 평면에 그려지고 -90° 눕히면 y가 -z가 되므로 (x, -z)로 넣는다.
+ */
+export function ZoneMesh(props: {
+  shape: ZoneShape;
+  w: number;
+  d: number;
+  y?: number;
+  onPointerDown?: (e: ThreeEvent<PointerEvent>) => void;
+  children: React.ReactNode;
+}) {
+  const { shape, w, d } = props;
+  const geom = useMemo(() => {
+    const { outer, hole } = zoneOutline(shape, Math.max(w, 0.01), Math.max(d, 0.01));
+    const sh = new THREE.Shape(outer.map(([x, z]) => new THREE.Vector2(x, -z)));
+    if (hole) sh.holes.push(new THREE.Path(hole.map(([x, z]) => new THREE.Vector2(x, -z))));
+    return new THREE.ShapeGeometry(sh, 24);
+  }, [shape, w, d]);
+  useEffect(() => () => geom.dispose(), [geom]);
+  return (
+    <mesh
+      geometry={geom}
+      position={[0, props.y ?? 0, 0]}
+      rotation={[-Math.PI / 2, 0, 0]}
+      receiveShadow
+      onPointerDown={props.onPointerDown}
+    >
+      {props.children}
+    </mesh>
+  );
+}
+
+/** 고른 구역의 윤곽선(모양 그대로, 고리는 안쪽 테두리까지) */
+function Outline({ shape, w, d }: { shape: ZoneShape; w: number; d: number }) {
   const c = '#2563eb';
   const y = 0.006;
+  const { outer, hole } = zoneOutline(shape, w, d);
+  const edges = (pts: [number, number][]) =>
+    pts.map((p, i) => {
+      const q = pts[(i + 1) % pts.length];
+      return { x1: p[0], z1: p[1], x2: q[0], z2: q[1] };
+    });
   return (
     <group>
-      <Strip x1={-w / 2} z1={-d / 2} x2={w / 2} z2={-d / 2} color={c} y={y} width={0.1} />
-      <Strip x1={-w / 2} z1={d / 2} x2={w / 2} z2={d / 2} color={c} y={y} width={0.1} />
-      <Strip x1={-w / 2} z1={-d / 2} x2={-w / 2} z2={d / 2} color={c} y={y} width={0.1} />
-      <Strip x1={w / 2} z1={-d / 2} x2={w / 2} z2={d / 2} color={c} y={y} width={0.1} />
+      {[...edges(outer), ...(hole ? edges(hole) : [])].map((e, i) => (
+        <Strip key={i} {...e} color={c} y={y} width={0.1} />
+      ))}
     </group>
   );
 }

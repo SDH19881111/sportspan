@@ -12,6 +12,7 @@ import {
   pasteItems,
   removeItems,
   rotateObjects,
+  rotateZones,
   setLocked,
   type Clip,
   ungroupItems,
@@ -111,11 +112,17 @@ export function flipSel(axis: 'x' | 'z') {
   if (ids.length) s.commit(flipItems(s.activity, s.sceneIdx, ids, axis));
 }
 
-/** dir 1 = 왼쪽(반시계), -1 = 오른쪽 */
+/** dir 1 = 왼쪽(반시계), -1 = 오른쪽. 물건은 보는 방향, 구역은 모양이 돈다. */
 export function rotateSel(dir: 1 | -1) {
   const s = st();
-  const objs = selectedObjIds(unlockedSel(), s.activity);
-  if (objs.length) s.commit(rotateObjects(s.activity, s.sceneIdx, objs, dir * ROTATE_STEP), 'rotate-key');
+  const free = unlockedSel();
+  const objs = selectedObjIds(free, s.activity);
+  const zones = free.filter((id) => s.activity.field.zones.some((z) => z.id === id));
+  if (!objs.length && !zones.length) return;
+  let next = s.activity;
+  if (objs.length) next = rotateObjects(next, s.sceneIdx, objs, dir * ROTATE_STEP);
+  if (zones.length) next = rotateZones(next, zones, dir * ROTATE_STEP);
+  s.commit(next, 'rotate-key');
 }
 
 export function nudgeSel(dx: number, dz: number) {

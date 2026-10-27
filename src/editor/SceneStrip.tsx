@@ -4,6 +4,7 @@ import type { Activity, Scene } from '../model/activity';
 import { colorOf } from '../model/activity';
 import { CATALOG_BY_KIND } from '../model/catalog';
 import { addSceneAfter, moveScene, removeScene } from '../model/ops';
+import { zoneWorldOutline } from '../model/shapes';
 import { useEditor } from './store';
 
 // 아래쪽 장면 띠: 장면 고르기, 다음 장면 만들기(지금 장면 복사), 순서 바꾸기, 지우기, 재생.
@@ -162,9 +163,13 @@ function MiniMap({ activity, scene }: { activity: Activity; scene: Scene }) {
   return (
     <svg className="minimap" viewBox={`${-w / 2 - m} ${-d / 2 - m} ${w + 2 * m} ${d + 2 * m}`} aria-hidden>
       <rect x={-w / 2} y={-d / 2} width={w} height={d} fill="#d8b27e" />
-      {activity.field.zones.map((z) => (
-        <rect key={z.id} x={z.x - z.w / 2} y={z.z - z.d / 2} width={z.w} height={z.d} fill={z.color} opacity={0.8} />
-      ))}
+      {activity.field.zones.map((z) => {
+        const { outer, hole } = zoneWorldOutline(z);
+        const path = (pts: [number, number][]) => `M${pts.map(([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`).join('L')}Z`;
+        return (
+          <path key={z.id} d={path(outer) + (hole ? path(hole) : '')} fill={z.color} fillRule="evenodd" opacity={0.8} />
+        );
+      })}
       {activity.field.lines.map((l) => (
         <line key={l.id} x1={l.x1} y1={l.z1} x2={l.x2} y2={l.z2} stroke={l.color} strokeWidth={0.15} />
       ))}

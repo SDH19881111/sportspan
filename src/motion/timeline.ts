@@ -6,11 +6,12 @@
 // 발표 화면은 묶음마다 클릭을 기다린다(groups의 시작 시각을 쓴다).
 
 import type { Activity, Anim, BoardObject, MoveStyle, Pose, SoundKind } from '../model/activity';
-import { CATALOG_BY_KIND } from '../model/catalog';
+import { CATALOG_BY_KIND, viewScale } from '../model/catalog';
 import {
   arcFlight,
   BALL_R,
   bounceFlight,
+  dropFlight,
   HAND_H,
   clamp,
   lerpAngle,
@@ -18,7 +19,6 @@ import {
   KID_ACC,
   KID_VMAX,
   runProfile,
-  throwFlight,
   topple,
   type Flight,
 } from './physics';
@@ -50,6 +50,8 @@ export interface TimedAnim {
   /** 움직이는 길 위 위치(공에 맞았는지, 경로 그리기용) */
   path?: (local: number) => { x: number; y: number; z: number };
   heading?: number;
+  /** 공 던짐·튀김만: 실제로 쓴 높이(공 가운데, m)와 알아서 정한 값, 도착점에서 만난 것 */
+  heights?: { from: number; autoFrom: number; to: number; landing: Landing | null };
   /** 학생이 공을 가지고 갈 때 공 쪽에 생기는 따라가기(목록에는 안 보인다) */
   carried?: boolean;
 }
@@ -151,12 +153,64 @@ export function polyline(points: { x: number; z: number }[]): Polyline {
   return { length, pointAt, headingAt };
 }
 
+/** 던진 공이 도착점에서 만나는 것: 받는 학생, 넣는 바구니·골대, 올려놓는 책상 */
+export interface Landing {
+  kind: 'kid' | 'basket' | 'goal' | 'desk';
+  /** 알아서 정한 도착 높이(공 가운데, m) */
+  h: number;
+  /** 거기서 멈추는지(받기·올려놓기). 아니면 그 자리에서 바닥으로 떨어진다(넣기) */
+  stays: boolean;
+}
+
+/** 공 높이 단추와 같은 값(공 가운데 높이, m) */
+export const HEIGHTS = [
+  { name: '바닥', h: BALL_R },
+  { name: '무릎', h: 0.5 },
+  { name: '허리', h: 0.9 },
+  { name: '가슴', h: 1.2 },
+  { name: '머리 위', h: 2 },
+];
+
+export const LANDING_NAMES: Record<Landing['kind'], string> = {
+  kid: '학생이 받기',
+  basket: '바구니에 넣기',
+  goal: '골대에 넣기',
+  desk: '책상 위에 놓기',
+};
+
+/** (x, z)에 떨어지는 공이 만나는 것(가장 가까운 것) */
+function landingAt(
+  a: Activity,
+  states: Map<string, ItemState>,
+  ballId: string,
+  x: number,
+  z: number,
+): Landing | null {
+  let best: { d: number; l: Landing } | null = null;
+  for (const o of a.objects) {
+    if (o.id === ballId) continue;
+    const s = states.get(o.id);
+    if (!s || s.hidden || s.fallen) continue;
+    const c = CATALOG_BY_KIND[o.kind];
+    const scale = viewScale(o.kind, a.field.kind);
+    const d = Math.hypot(s.x - x, s.z - z);
+    let l: Landing | null = null;
+    if (o.kind === 'kid' && d <= 0.6 * scale) l = { kind: 'kid', h: c.height * scale * 0.6, stays: true };
+    else if (o.kind === 'basket' && d <= c.radius * scale + 0.2) l = { kind: 'basket', h: c.height * scale + 0.15, stays: false };
+    else if (o.kind === 'goal' && d <= c.radius) l = { kind: 'goal', h: c.height * 0.5, stays: false };
+    else if (o.kind === 'desk' && d <= c.radius) l = { kind: 'desk', h: c.height + BALL_R, stays: true };
+    if (l && (!best || d < best.d)) best = { d, l };
+  }
+  return best?.l ?? null;
+}
+
 /**
  * 던지기·튕기기: 꺾는 점마다 구간을 나눠 따로 날아간다.
  * 던짐은 꺾는 점에서 손 높이로 받아 곧바로 다시 던지고(패스 잇기),
  * 튀김은 꺾는 점에서 바닥에 한 번 튀어 방향을 바꾼 뒤, 마지막 구간에서 잦아들며 멈춘다.
+ * 던짐이 바닥보다 높은 곳에 도착하면, 받거나 올려놓은 게 아니면 그 자리에서 떨어진다(drop).
  */
-function chainFlight(points: { x: number; z: number }[], isThrow: boolean) {
+function chainFlight(points: { x: number; z: number }[], isThrow: boolean, fromH: number, toH: number, drop: boolean) {
   const mid = isThrow ? HAND_H : BALL_R; // 꺾는 점에서의 공 높이
   const segs: { a: { x: number; z: number }; b: { x: number; z: number }; start: number; fl: Flight }[] = [];
   let t0 = 0;
@@ -165,13 +219,18 @@ function chainFlight(points: { x: number; z: number }[], isThrow: boolean) {
     const b = points[i];
     const d = Math.hypot(b.x - a.x, b.z - a.z);
     if (d < 1e-6) continue;
-    const h0 = segs.length ? mid : HAND_H;
+    const h0 = segs.length ? mid : fromH;
     const last = i === points.length - 1;
-    const fl = !last ? arcFlight(d, h0, mid) : isThrow ? throwFlight(d, h0) : bounceFlight(d, 0.55, 2, h0);
+    const fl = !last ? arcFlight(d, h0, mid) : isThrow ? arcFlight(d, h0, toH) : bounceFlight(d, 0.55, 2, h0);
     segs.push({ a, b, start: t0, fl });
     t0 += fl.duration;
   }
   const end = points[points.length - 1];
+  if (isThrow && drop && segs.length) {
+    const fl = dropFlight(toH);
+    segs.push({ a: end, b: end, start: t0, fl });
+    t0 += fl.duration;
+  }
   return {
     duration: t0,
     path: (t: number) => {
@@ -184,9 +243,14 @@ function chainFlight(points: { x: number; z: number }[], isThrow: boolean) {
   };
 }
 
-type Built = Required<Pick<TimedAnim, 'duration' | 'at' | 'end'>> & Pick<TimedAnim, 'path' | 'heading'>;
+type Built = Required<Pick<TimedAnim, 'duration' | 'at' | 'end'>> & Pick<TimedAnim, 'path' | 'heading' | 'heights'>;
 
-function buildMove(obj: BoardObject, from: ItemState, anim: Anim): Built {
+function buildMove(
+  obj: BoardObject,
+  from: ItemState,
+  anim: Anim,
+  land: (x: number, z: number) => Landing | null = () => null,
+): Built {
   const to = anim.to ?? { x: from.x, z: from.z };
   const style = anim.style ?? defaultStyle(obj);
   const flying = obj.kind === 'ball' && (style === 'throw' || style === 'bounce');
@@ -198,8 +262,25 @@ function buildMove(obj: BoardObject, from: ItemState, anim: Anim): Built {
   if (obj.kind === 'ball') {
     let path: (t: number) => { x: number; y: number; z: number };
     let duration: number;
+    let heights: TimedAnim['heights'];
+    let restY = 0;
     if (flying) {
-      const fl = chainFlight(points, style === 'throw');
+      // 떠나는 높이: 정한 값 → 받아 들고 있던 높이 → 손 높이
+      const autoFrom = from.y > 0.01 ? from.y + BALL_R : HAND_H;
+      const fromH = anim.fromH ?? autoFrom;
+      let toH = BALL_R;
+      let landing: Landing | null = null;
+      let drop = false;
+      if (style === 'throw') {
+        landing = land(to.x, to.z);
+        toH = anim.toH ?? landing?.h ?? BALL_R;
+        // 학생은 어느 높이든 받고, 책상은 윗면 높이일 때만 위에 놓인다
+        const stays = landing?.kind === 'kid' || (landing?.kind === 'desk' && Math.abs(toH - landing.h) < 0.1);
+        drop = !stays && toH > BALL_R + 0.05;
+        if (!drop) restY = Math.max(0, toH - BALL_R);
+      }
+      heights = { from: fromH, autoFrom, to: toH, landing };
+      const fl = chainFlight(points, style === 'throw', fromH, toH, drop);
       duration = fl.duration;
       path = fl.path;
     } else {
@@ -207,12 +288,13 @@ function buildMove(obj: BoardObject, from: ItemState, anim: Anim): Built {
       duration = prof.duration;
       path = (t) => ({ ...line.pointAt(prof.s(t)), y: BALL_R });
     }
-    const end = rest({ ...from, x: to.x, z: to.z });
+    const end = { ...rest({ ...from, x: to.x, z: to.z }), y: restY };
     return {
       duration,
       end,
       path,
       heading,
+      heights,
       at: (t) => {
         const q = path(t);
         // 공 모델의 기준점은 바닥이라 높이는 (중심 높이 - 반지름). 굴러가는 만큼 돈다.
@@ -358,7 +440,7 @@ export function buildTimeline(a: Activity, sceneIdx: number): Timeline {
       item = { anim, index, group, start, ...withSpeed({ duration }, anim.speed) };
     } else {
       let built: Built;
-      if (anim.kind === 'move') built = buildMove(obj!, from!, anim);
+      if (anim.kind === 'move') built = buildMove(obj!, from!, anim, (x, z) => landingAt(a, current, obj!.id, x, z));
       else if (anim.kind === 'fall') {
         let yaw = from!.rot;
         if (anim.start === 'hit') {

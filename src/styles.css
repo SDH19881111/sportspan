@@ -319,6 +319,29 @@ button {
   flex: 1;
 }
 
+/* 공 높이: 알아서(한 줄 전체) / 높이 단추 / 직접 입력 */
+.height-pick button:first-child {
+  flex-basis: 100%;
+}
+
+.height-num {
+  flex: 1 0 30%;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--muted, #667);
+}
+
+.height-num input {
+  width: 100%;
+  min-width: 0;
+  padding: 7px 6px;
+  border: 1px solid var(--panel-line);
+  border-radius: 8px;
+  font-size: 14px;
+}
+
 .seg button,
 .stack button,
 .rotate button,

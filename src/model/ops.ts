@@ -570,6 +570,8 @@ export function updateAnim(a: Activity, sceneIdx: number, id: string, patch: Par
   if (an) {
     Object.assign(an, patch);
     if ('speed' in patch && patch.speed === undefined) delete an.speed;
+    if ('fromH' in patch && patch.fromH === undefined) delete an.fromH;
+    if ('toH' in patch && patch.toH === undefined) delete an.toH;
     if (patch.to) {
       const [x, z] = clampToField(a, patch.to.x, patch.to.z);
       an.to = { x, z };

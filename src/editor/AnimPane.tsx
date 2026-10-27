@@ -14,7 +14,16 @@ import {
   updateAnims,
 } from '../model/ops';
 import { playSound, SOUND_NAMES, unlockAudio } from '../audio/sfx';
-import { buildTimeline, defaultStyle, SPEEDS, type TimedAnim, type Timeline } from '../motion/timeline';
+import { BALL_R } from '../motion/physics';
+import {
+  buildTimeline,
+  defaultStyle,
+  HEIGHTS,
+  LANDING_NAMES,
+  SPEEDS,
+  type TimedAnim,
+  type Timeline,
+} from '../motion/timeline';
 import { useEditor } from './store';
 
 // 애니메이션 창(PPT의 애니메이션 창처럼): 순서, 시작 방식, 지연, 시간 막대.
@@ -508,6 +517,24 @@ function AnimDetail(props: {
               </button>
             ) : null}
           </div>
+          {flying && item?.heights && (
+            <HeightPick
+              label="떠나는 높이"
+              value={anim.fromH}
+              auto={item.heights.autoFrom}
+              autoNote={item.from && item.from.y > 0.01 ? '받은 높이' : '손 높이'}
+              onPick={(h) => set({ fromH: h })}
+            />
+          )}
+          {style === 'throw' && item?.heights && (
+            <HeightPick
+              label="도착 높이"
+              value={anim.toH}
+              auto={item.heights.landing?.h ?? BALL_R}
+              autoNote={item.heights.landing ? LANDING_NAMES[item.heights.landing.kind] : '바닥에 떨어짐'}
+              onPick={(h) => set({ toH: h })}
+            />
+          )}
           {obj.kind === 'kid' && balls.length > 0 && (
             <>
               <label className="field">
@@ -590,6 +617,54 @@ function AnimDetail(props: {
 }
 
 /** 여러 개를 골랐을 때: 시작 방식·지연·빠르기를 한꺼번에 */
+/** 공 높이(m) 보이기: 바닥에 닿아 있으면 0 */
+const showH = (h: number) => (h <= BALL_R + 0.01 ? '0' : String(round1(h)));
+
+/** 공이 떠나는·도착하는 높이: 알아서 / 높이 단추 / 직접 입력(m) */
+function HeightPick(props: {
+  label: string;
+  value: number | undefined;
+  auto: number;
+  autoNote: string;
+  onPick: (h: number | undefined) => void;
+}) {
+  const { label, value, auto, autoNote, onPick } = props;
+  return (
+    <>
+      <span className="field-label">{label}</span>
+      <div className="seg wrap height-pick">
+        <button className={value === undefined ? 'on' : ''} onClick={() => onPick(undefined)} title={`${autoNote}, ${showH(auto)}m`}>
+          알아서 · {autoNote}
+        </button>
+        {HEIGHTS.map((p) => (
+          <button
+            key={p.name}
+            className={value !== undefined && Math.abs(value - p.h) < 0.01 ? 'on' : ''}
+            onClick={() => onPick(p.h)}
+            title={`${showH(p.h)}m`}
+          >
+            {p.name}
+          </button>
+        ))}
+        <label className="height-num" title="바닥에서 공 가운데까지 높이(m)">
+          <input
+            type="number"
+            min={0}
+            max={6}
+            step={0.1}
+            value={showH(value ?? auto)}
+            onChange={(e) => {
+              const v = parseFloat(e.target.value);
+              if (Number.isFinite(v)) onPick(Math.min(6, Math.max(BALL_R, round1(v))));
+            }}
+          />
+          m
+        </label>
+      </div>
+    </>
+  );
+}
+
 function MultiDetail(props: {
   anims: Anim[];
   onChange: (patch: Partial<Pick<Anim, 'start' | 'delay' | 'speed'>>) => void;

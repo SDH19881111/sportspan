@@ -111,6 +111,10 @@ export interface Anim {
   via?: { x: number; z: number }[]; // move만: 꺾는 점(지나가는 순서대로)
   style?: MoveStyle; // move만
   speed?: number; // 빠르기 배율(1 = 보통, 0.5 = 절반 빠르기로 느리게). 없으면 1
+  /** 공 던짐·튀김만: 떠나는 높이(공 가운데, m). 없으면 알아서(앞에서 받은 높이, 아니면 손 높이) */
+  fromH?: number;
+  /** 공 던짐만: 도착 높이(공 가운데, m). 없으면 알아서(학생 = 받기, 바구니·골대 = 넣기, 책상 = 위에 놓기) */
+  toH?: number;
   /** 학생 move만: 공을 함께 가지고 간다(발 = 드리블, 손 = 들고) */
   carry?: { ballId: string; hold: 'foot' | 'hand' };
 }

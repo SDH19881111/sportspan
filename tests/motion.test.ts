@@ -179,6 +179,35 @@ describe('장면 안 애니메이션 시간표', () => {
     expect(bo.end).toMatchObject({ x: 4, z: 0, y: 0 });
   });
 
+  it('던진 공 높이: 학생에게 던지면 가슴 높이에서 받아 멈추고, 다음에는 그 높이에서 떠난다', () => {
+    let { a, ball } = setup();
+    const k2 = addObject(a, { kind: 'kid', teamId: 'red' }, { x: 3, z: 0, rot: 0 });
+    a = k2.activity;
+    a = add(a, { objId: ball, kind: 'move', start: 'click', delay: 0, to: { x: 3, z: 0 }, style: 'throw' });
+    a = add(a, { objId: ball, kind: 'move', start: 'after', delay: 0, to: { x: 0, z: 3 }, style: 'throw' });
+    const tl = buildTimeline(a, 0);
+    const [t1, t2] = tl.items;
+    expect(t1.heights!.landing?.kind).toBe('kid');
+    expect(t1.end!.y).toBeGreaterThan(0.5); // 손에 들고 있다
+    expect(t2.heights!.from).toBeCloseTo(t1.heights!.to);
+    expect(tl.at(ball, tl.duration)!.y).toBe(0); // 아무도 없는 곳은 바닥
+  });
+
+  it('바구니 위로 던지면 그 높이에서 떨어져 들어가고, 정한 높이는 알아서보다 앞선다', () => {
+    let { a, ball } = setup();
+    const bk = addObject(a, { kind: 'basket' }, { x: 3, z: 0, rot: 0 });
+    a = bk.activity;
+    a = add(a, { objId: ball, kind: 'move', start: 'click', delay: 0, to: { x: 3, z: 0 }, style: 'throw', fromH: 2 });
+    const it = buildTimeline(a, 0).items[0];
+    expect(it.heights!.landing?.kind).toBe('basket');
+    expect(it.path!(0).y).toBeCloseTo(2);
+    let top = 0;
+    for (let i = 0; i <= 200; i++) top = Math.max(top, it.path!((it.duration * i) / 200).y);
+    expect(top).toBeGreaterThan(it.heights!.to);
+    expect(it.path!(it.duration).y).toBeCloseTo(BALL_R);
+    expect(it.end!.y).toBe(0);
+  });
+
   it('같은 장면은 몇 번을 계산해도 똑같다', () => {
     let { a, ball } = setup();
     a = add(a, { objId: ball, kind: 'move', start: 'click', delay: 0, to: { x: 6, z: 2 }, style: 'bounce' });

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import type { Activity, AnimKind, AnimStart, FieldKind } from '../model/activity';
+import type { Activity, AnimKind, AnimStart, FieldKind, Roam } from '../model/activity';
 import { FIELD_SIZES } from '../model/activity';
 import { CATALOG_BY_KIND } from '../model/catalog';
 import { COURTS, currentCourt, setCourt } from '../model/courts';
@@ -381,6 +381,7 @@ function ObjectPanel({ ids }: { ids: string[] }) {
           </button>
         ))}
       </div>
+      {objs.every((o) => o.kind === 'kid') && <RoamField ids={ids} />}
       <h3>애니메이션 추가</h3>
       <div className="anim-add">
         {ids.length > 1 ? (
@@ -462,6 +463,47 @@ function ObjectPanel({ ids }: { ids: string[] }) {
           </button>
         )}
       </div>
+    </>
+  );
+}
+
+const roamKey = (r: Roam | undefined) => (!r ? 'around' : typeof r === 'object' ? `zone:${r.zone}` : r);
+
+/** 학생 자유 움직임(발표할 때): 자리 둘레 / 구역 안 / 가만히 → motion/wander.ts */
+function RoamField({ ids }: { ids: string[] }) {
+  const a = useEditor((s) => s.activity);
+  const run = useCommit();
+  const objs = a.objects.filter((o) => ids.includes(o.id));
+  const keys = new Set(objs.map((o) => roamKey(o.roam)));
+  const value = keys.size === 1 ? [...keys][0] : '';
+  const zoneName = (i: number) => a.field.zones[i].label?.trim() || `구역 ${i + 1}`;
+  const set = (key: string) => {
+    const roam: Roam | undefined = key === 'around' ? undefined : key === 'off' ? 'off' : { zone: key.slice(5) };
+    run((v) => updateObjects(v, ids, { roam }));
+  };
+  return (
+    <>
+      <label className="field">
+        <span>발표할 때 저절로 움직이기</span>
+        <select id="obj-roam" value={value} onChange={(e) => set(e.target.value)}>
+          {value === '' && (
+            <option value="" disabled>
+              여러 가지
+            </option>
+          )}
+          <option value="around">자리 둘레에서 오가기</option>
+          {a.field.zones.map((z, i) => (
+            <option key={z.id} value={`zone:${z.id}`}>
+              {zoneName(i)} 안에서만 오가기
+            </option>
+          ))}
+          <option value="off">가만히 있기</option>
+        </select>
+      </label>
+      <p className="note">
+        이동 애니메이션이 없는 동안만 움직입니다. 이동할 때, 공을 가졌거나 받을 때, 말풍선·강조가 붙어 있을 때는 제자리에 섭니다.
+        {a.field.zones.length === 0 && ' 구역을 그리면 그 구역 안에서만 오가게 할 수 있습니다.'}
+      </p>
     </>
   );
 }

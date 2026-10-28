@@ -1,12 +1,12 @@
 import { useMemo, useRef, useState } from 'react';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
-import type { Activity } from '../model/activity';
+import type { Activity, BoardObject } from '../model/activity';
 import { colorOf } from '../model/activity';
 import { CATALOG_BY_KIND, viewScale } from '../model/catalog';
 import { addBubble, addMoves, expandGroups, isLocked, moveItems, moveVia, updateAnim } from '../model/ops';
 import { playSound } from '../audio/sfx';
-import { buildTimeline, type Timeline } from '../motion/timeline';
+import { buildTimeline, type ItemState, type Timeline } from '../motion/timeline';
 import { BoardItem } from '../scene/BoardItem';
 import { Field, ZoneMesh } from '../scene/Field';
 import { AnimBadge, ArrowMark, BubbleTag, HighlightRing, PathMark } from '../scene/Marks';
@@ -106,13 +106,17 @@ function GridOverlay({ activity }: { activity: Activity }) {
   );
 }
 
-function Items(props: { activity: Activity; timeline: Timeline; t: number; sel?: string[]; interactive?: boolean }) {
-  const { activity, timeline, t, sel = [], interactive } = props;
+/** 시간표 자리를 그리기 직전에 바꾸는 것(발표 중 학생 자유 움직임) */
+export type AdjustItem = (obj: BoardObject, state: ItemState) => ItemState;
+
+function Items(props: { activity: Activity; timeline: Timeline; t: number; sel?: string[]; interactive?: boolean; adjust?: AdjustItem }) {
+  const { activity, timeline, t, sel = [], interactive, adjust } = props;
   return (
     <>
       {activity.objects.map((obj) => {
-        const state = timeline.at(obj.id, t);
-        if (!state) return null;
+        const at = timeline.at(obj.id, t);
+        if (!at) return null;
+        const state = adjust ? adjust(obj, at) : at;
         return (
           <group key={obj.id} onPointerDown={interactive ? (e) => onItemDown(obj.id, e) : undefined}>
             <BoardItem
@@ -302,12 +306,12 @@ function PlaybackScene({ activity }: { activity: Activity }) {
 }
 
 /** 손댈 수 없는 장면 모습(재생·발표 화면): t초의 물건 자리와 표시 */
-export function ShowScene(props: { activity: Activity; sceneIdx: number; timeline: Timeline; t: number }) {
-  const { activity, sceneIdx, timeline, t } = props;
+export function ShowScene(props: { activity: Activity; sceneIdx: number; timeline: Timeline; t: number; adjust?: AdjustItem }) {
+  const { activity, sceneIdx, timeline, t, adjust } = props;
   return (
     <>
       <Field field={activity.field} />
-      <Items activity={activity} timeline={timeline} t={t} />
+      <Items activity={activity} timeline={timeline} t={t} adjust={adjust} />
       <SceneMarks activity={activity} sceneIdx={sceneIdx} timeline={timeline} t={t} />
     </>
   );

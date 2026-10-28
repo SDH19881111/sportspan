@@ -3,12 +3,12 @@ import { EditorScene } from './editor/EditorScene';
 import { Inspector } from './editor/Inspector';
 import { formatTime, Library } from './editor/Library';
 import { Palette, ToolHint } from './editor/Palette';
-import { Presenter, startPresent } from './present/Presenter';
+import { Presenter, startPresent, startPreview } from './present/Presenter';
 import { SceneStrip } from './editor/SceneStrip';
 import { useEditor } from './editor/store';
 import { pointer, useShortcuts } from './editor/useShortcuts';
 import { ContextMenu, onStageContextMenu, onStagePointerDownCapture } from './editor/ContextMenu';
-import { setCaption } from './model/ops';
+import { setCaption, setTitle } from './model/ops';
 import { coneSoccer } from './samples/coneSoccer';
 import { Stage, type CameraView } from './scene/Stage';
 import { copyOf, lastOpened, listActivities, loadActivity, saveUnlessBlank } from './storage/library';
@@ -114,7 +114,18 @@ export function App() {
         <button className="lib-btn" onClick={() => setLibOpen(true)} title="내 설명판 (Ctrl+O)">
           내 설명판
         </button>
-        <h1>{activity.title || '이름 없는 활동'}</h1>
+        {/* 설명판 이름: 그 자리에서 고친다(오른쪽 활동 패널의 이름 칸과 같은 값, 되돌리기는 한 번에) */}
+        <input
+          className="title-input"
+          aria-label="설명판 이름"
+          title="눌러서 이름 고치기"
+          placeholder="이름 없는 활동"
+          value={activity.title}
+          onChange={(e) => commit(setTitle(useEditor.getState().activity, e.target.value), 'title')}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === 'Escape') e.currentTarget.blur();
+          }}
+        />
         <span className={`save-state ${save.state.status}`} role="status">
           {save.state.status === 'saved' && `저장됨 ${formatTime(save.state.at)}`}
           {save.state.status === 'pending' && '저장 중…'}
@@ -129,6 +140,13 @@ export function App() {
             다시 하기
           </button>
         </div>
+        <button
+          className="preview-btn"
+          onClick={() => startPreview(sceneIdx)}
+          title="TV에 내보내기 전에 이 화면에서 발표를 미리 보기 (지금 장면부터)"
+        >
+          👁 미리보기
+        </button>
         <button
           className="present-btn"
           onClick={() => startPresent(0)}

@@ -33,10 +33,10 @@ npm run dev
 | 위치 | 역할 |
 |---|---|
 | `src/model/` | 활동 데이터 구조(`activity.ts`), 장비 목록·보기 배율(`catalog.ts`), 바꾸는 순수 함수(`ops.ts`), 경기장 선 틀(`courts.ts`) |
-| `src/motion/` | 움직임 공식(`physics.ts`: 달리기 가감속·굴리기·던지기·튕기기·콘 넘어짐), 장면 안 애니메이션 시간표(`timeline.ts`) |
+| `src/motion/` | 움직임 공식(`physics.ts`: 달리기 가감속·굴리기·던지기·튕기기·콘 넘어짐), 장면 안 애니메이션 시간표(`timeline.ts`), 발표 중 학생 자유 움직임(`wander.ts`) |
 | `src/editor/` | 편집기 상태(`store.ts`)·화면 조작·패널·장면 띠·내 설명판 |
 | `src/scene/` | 3D 무대·카메라(`Stage.tsx`), 경기장(`Field.tsx`), 표시(`Marks.tsx`), 저폴리 모델(`models/`) |
-| `src/present/` | 발표 화면(`Presenter.tsx`), 단계 넘기기 규칙(`steps.ts`: 클릭 묶음·장면 끝마다 멈춤) |
+| `src/present/` | 발표 화면·미리보기(`Presenter.tsx`), 단계 넘기기 규칙(`steps.ts`: 클릭 묶음·장면 끝마다 멈춤) |
 | `src/storage/` | 브라우저 저장·파일 내보내기/가져오기(`library.ts`) |
 | `src/samples/` | 견본 활동 |
 

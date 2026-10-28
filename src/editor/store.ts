@@ -111,7 +111,11 @@ interface EditorState {
   setMarquee: (m: Marquee | null) => void;
   /** 발표 화면: 몇 번째 장면부터 발표 중인지(null이면 편집 중) */
   presenting: number | null;
-  present: (fromScene: number) => void;
+  /** 발표 미리보기: 전체 화면을 켜지 않고 창 안 TV 비율 틀에서 발표 화면을 본다 */
+  previewing: boolean;
+  present: (fromScene: number, preview?: boolean) => void;
+  /** 미리보기에서 그대로 발표로(전체 화면은 누른 곳에서 켠다) */
+  goLive: () => void;
   endPresent: (atScene: number) => void;
   /** 재생 빠르기(0.5배 ~ 2배) */
   playRate: number;
@@ -179,10 +183,12 @@ export const useEditor = create<EditorState>((set, get) => ({
   setScrubT: (scrubT) => set({ scrubT }),
   stop: () => set({ playing: null }),
   presenting: null,
-  present: (fromScene) =>
-    set({ presenting: fromScene, playing: null, tool: { t: 'select' }, draft: null, scrubT: null, marquee: null }),
+  previewing: false,
+  present: (fromScene, preview = false) =>
+    set({ presenting: fromScene, previewing: preview, playing: null, tool: { t: 'select' }, draft: null, scrubT: null, marquee: null }),
+  goLive: () => set({ previewing: false }),
   endPresent: (atScene) => {
-    set({ presenting: null });
+    set({ presenting: null, previewing: false });
     get().setSceneIdx(atScene);
   },
   focus: 'canvas',

@@ -64,12 +64,19 @@ export interface Field {
   lines: FieldLine[];
 }
 
+/**
+ * 학생 자유 움직임(발표 중, 이동을 정하지 않았을 때): 자리 둘레 / 정해 준 구역 안 / 가만히.
+ * 없으면 자리 둘레 → motion/wander.ts
+ */
+export type Roam = 'around' | 'off' | { zone: string };
+
 export interface BoardObject extends Arrangeable {
   id: string;
   kind: ObjectKind;
   teamId?: string;
   color?: string; // 팀이 없을 때의 색
   label?: string; // 아이 이름·번호
+  roam?: Roam; // 학생만
 }
 
 /** 장면이 시작될 때의 자리와 상태 */

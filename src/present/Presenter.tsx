@@ -2,10 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { buildTimeline, type Timeline } from '../motion/timeline';
 import { playSound, unlockAudio } from '../audio/sfx';
-import { ShowScene } from '../editor/EditorScene';
+import { ShowScene, type AdjustItem } from '../editor/EditorScene';
 import { useEditor } from '../editor/store';
 import { Stage, type CameraView } from '../scene/Stage';
 import { advance, atEnd, back, enterScene, tick, type PresentState } from './steps';
+import type { Activity } from '../model/activity';
+import { applyWander, isAnchored, newWanderer, roamOf, stepWanderer, type Wanderer } from '../motion/wander';
 
 const VIEWS: { id: CameraView; name: string }[] = [
   { id: 'top', name: '위에서' },
@@ -29,11 +31,26 @@ export function startPresent(fromScene: number) {
 }
 
 /**
+ * 발표 미리보기: 전체 화면을 켜지 않고 창 안의 TV 비율(16:9) 틀에 발표 화면을 띄운다.
+ * 클뷰플 펼치기 창에서는 전체 화면이 곧 TV로 옮기기라서, 그 전에 선생님 화면에서 확인할 수 있게.
+ */
+export function startPreview(fromScene: number) {
+  useEditor.getState().present(fromScene, true);
+}
+
+/** 미리보기에서 그 자리 그대로 발표로. 전체 화면은 누른 그 순간에만 켤 수 있어 버튼에서 부른다 */
+function goLive() {
+  document.documentElement.requestFullscreen?.().catch(() => {});
+  useEditor.getState().goLive();
+}
+
+/**
  * 발표 화면: 전체 화면에 장면과 큰 자막만. 클릭·Space·→로 다음 단계, ←로 이전 단계, Esc로 나간다.
  * "클릭할 때" 애니메이션마다, 그리고 장면 끝에서 멈춰 기다린다.
  */
 export function Presenter({ startScene, onExit }: { startScene: number; onExit: (scene: number) => void }) {
   const activity = useEditor((s) => s.activity);
+  const preview = useEditor((s) => s.previewing);
   const timelines = useMemo(() => activity.scenes.map((_, i) => buildTimeline(activity, i)), [activity]);
   const groupsOf = useCallback((i: number) => timelines[i].groups, [timelines]);
   const count = activity.scenes.length;
@@ -69,8 +86,17 @@ export function Presenter({ startScene, onExit }: { startScene: number; onExit: 
     return () => window.clearTimeout(id);
   }, []);
 
+  // 학생 자유 움직임(motion/wander.ts): 학생마다 어긋남을 프레임마다 옮기고, 그릴 때 시간표 자리에 더한다
+  const wanderers = useRef(new Map<string, Wanderer>());
+  const [, setFrame] = useState(0);
+  useEffect(() => wanderers.current.clear(), [state.scene]); // 장면이 바뀌면 새 자리에서 다시
+  const adjust = useCallback<AdjustItem>((obj, s) => (obj.kind === 'kid' ? applyWander(s, wanderers.current.get(obj.id)) : s), []);
+  const redraw = useCallback(() => setFrame((n) => (n + 1) % 1000000), []);
+
   // 전체 화면은 startPresent가 누른 순간 켠다. 브라우저가 Esc로 전체 화면을 먼저 풀면 발표도 끝낸다.
+  // 미리보기는 전체 화면을 쓰지 않는다(이대로 발표를 누르면 그때부터 지켜본다).
   useEffect(() => {
+    if (preview) return;
     let entered = !!document.fullscreenElement;
     const onChange = () => {
       if (document.fullscreenElement) entered = true;
@@ -81,7 +107,7 @@ export function Presenter({ startScene, onExit }: { startScene: number; onExit: 
       document.removeEventListener('fullscreenchange', onChange);
       if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
     };
-  }, [exit]);
+  }, [exit, preview]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -122,10 +148,23 @@ export function Presenter({ startScene, onExit }: { startScene: number; onExit: 
   const waiting = state.target === null && !ended;
 
   return (
-    <div className="present" onPointerDown={onPointerDown} onPointerUp={onPointerUp}>
+    <div className={preview ? 'present preview' : 'present'}>
+      {preview && (
+        <div className="preview-bar">
+          <span className="preview-title">👁 발표 미리보기 <em>TV에는 아직 나가지 않습니다 · 클릭·Space·→로 넘겨 보세요</em></span>
+          <button className="present-btn" onClick={goLive} title="지금 보는 자리부터 전체 화면으로 발표">
+            ▶ 이대로 발표
+          </button>
+          <button className="present-exit" onClick={exit} title="미리보기 닫기 (Esc)">
+            닫기
+          </button>
+        </div>
+      )}
+      <div className="present-screen" onPointerDown={onPointerDown} onPointerUp={onPointerUp}>
       <Stage field={activity.field} view={view} viewNonce={viewNonce} controlsEnabled>
         <Runner stateRef={stateRef} commit={commit} timelines={timelines} soundFrom={soundFrom} />
-        <ShowScene activity={activity} sceneIdx={state.scene} timeline={timeline} t={state.t} />
+        <WanderDriver activity={activity} timelines={timelines} stateRef={stateRef} wanderers={wanderers} redraw={redraw} />
+        <ShowScene activity={activity} sceneIdx={state.scene} timeline={timeline} t={state.t} adjust={adjust} />
       </Stage>
 
       <div className="present-bar" onPointerDown={stop} onPointerUp={stop}>
@@ -164,8 +203,46 @@ export function Presenter({ startScene, onExit }: { startScene: number; onExit: 
 
       {ended && <p className="present-end">마지막 장면입니다 · Esc로 나가기</p>}
       {hint && <p className="present-hint">클릭·Space·→ 다음 · ← 이전 · Esc 나가기</p>}
+      </div>
     </div>
   );
+}
+
+/**
+ * 학생 자유 움직임을 프레임마다 옮긴다(클릭을 기다리며 시간이 멈춰 있어도). 움직이는 학생이 있을 때만 다시 그린다.
+ */
+function WanderDriver(props: {
+  activity: Activity;
+  timelines: Timeline[];
+  stateRef: React.MutableRefObject<PresentState>;
+  wanderers: React.MutableRefObject<Map<string, Wanderer>>;
+  redraw: () => void;
+}) {
+  const ref = useRef(props);
+  ref.current = props;
+  useFrame((_, dt) => {
+    const { activity, timelines, stateRef, wanderers, redraw } = ref.current;
+    const st = stateRef.current;
+    const timeline = timelines[st.scene];
+    const step = Math.min(dt, 0.1);
+    let moved = false;
+    for (const obj of activity.objects) {
+      const { roam, zone } = roamOf(obj, activity.field.zones);
+      if (roam === 'off') {
+        if (wanderers.current.delete(obj.id)) moved = true;
+        continue;
+      }
+      const base = timeline.at(obj.id, st.t);
+      if (!base) continue;
+      const prev = wanderers.current.get(obj.id) ?? newWanderer(base);
+      const anchored = isAnchored(activity, st.scene, timeline, obj.id, base, st.t, st.target !== null);
+      const next = stepWanderer(prev, { base, anchored, field: activity.field, zone, dt: step });
+      wanderers.current.set(obj.id, next);
+      if (!(prev.settled && next.settled)) moved = true;
+    }
+    if (moved) redraw();
+  });
+  return null;
 }
 
 /** 캔버스 안에서 시간을 흘린다(도는 중일 때만). 지나간 효과음도 여기서 울린다. */

@@ -54,15 +54,48 @@ button {
   color: var(--bar-ink);
 }
 
-.topbar h1 {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 700;
+/* 설명판 이름: 제목처럼 보이다가 누르면 고치는 칸 */
+.title-input {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
+  margin: 0;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--bar-ink);
+  font: inherit;
+  font-size: 22px;
+  font-weight: 700;
   text-overflow: ellipsis;
+}
+
+.title-input::placeholder {
+  color: rgba(243, 245, 249, 0.5);
+}
+
+.title-input:hover {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.title-input:focus {
+  outline: none;
+  border-color: #9cc2ff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.preview-btn {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  padding: 7px 12px;
+  background: transparent;
+  color: var(--bar-ink);
+  font-size: 14px;
   white-space: nowrap;
+}
+
+.preview-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .history {
@@ -1401,6 +1434,72 @@ textarea:focus-visible {
   inset: 0;
   background: #cfe3f2;
   user-select: none;
+}
+
+/* 발표 화면 자체. 평소엔 창 전체, 미리보기에선 TV 비율 틀(글자는 틀 크기에 맞춘다) */
+.present-screen {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  container-type: size;
+  background: #cfe3f2;
+}
+
+/* ── 발표 미리보기: 전체 화면 없이 창 안에서 TV(16:9) 크기로 ── */
+.present.preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 16px 16px;
+  background: #0b1220;
+}
+
+.preview-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(100%, calc((100vh - 76px) * 16 / 9));
+  color: #f3f5f9;
+}
+
+.preview-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 16px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preview-title em {
+  margin-left: 8px;
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 400;
+  color: #b9c3d6;
+}
+
+.present.preview .present-screen {
+  position: relative;
+  inset: auto;
+  width: min(100%, calc((100vh - 76px) * 16 / 9));
+  aspect-ratio: 16 / 9;
+  flex: none;
+  border-radius: 8px;
+  box-shadow: 0 0 0 2px #2b3a57;
+}
+
+.present.preview .present-caption {
+  font-size: clamp(10px, 2.3cqw, 44px); /* 1920 폭 TV에서 44px인 비율 */
+  bottom: 4cqh;
+}
+
+.present.preview .present-hint,
+.present.preview .present-end {
+  font-size: 13px;
 }
 
 .present-bar {
